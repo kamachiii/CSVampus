@@ -21,7 +21,7 @@ Instalasi & Pengembangan
 Untuk menjalankan pengujian parser CSV (Node):
 
 ```bash
-cd '/home/kamachi/Documents/3 Bulan Liburan 2025/extractor/testing'
+cd testing
 npm install
 npm test
 ```
@@ -42,9 +42,9 @@ Gunakan contoh CSV ini untuk mencoba fitur preview dan mapping kolom:
 
 ```csv
 No,Rombel,NIM,Nama Full Rombel,Status
-1,24TI05,110224161,ABDUL HAKIM,Isi KRS
-2,24TI04,110224132,ACHMAD RAIHAN,Isi KRS
-3,24TI06,110224092,ADIT HERMANSYAH,Isi KRS
+1,TI01,012345678,SAEPUL RIZKY,Isi KRS
+2,TI02,012345679,AHMAD TAULADAN,Isi KRS
+3,TI03,012345670,FEBRY HARYANDI,Isi KRS
 ```
 
 Tips penggunaan
@@ -75,7 +75,7 @@ Menambahkan konfigurasi Firebase (untuk upload ke Firestore):
 
 Testing parseCSV (node):
 ```bash
-cd '/home/kamachi/Documents/3 Bulan Liburan 2025/extractor/testing'
+cd testing
 npm install
 npm test
 ```
