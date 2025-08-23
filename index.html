@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengelola Data Mahasiswa</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS (xlsx) for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- PapaParse for robust CSV parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Styles -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        .sortable:hover { cursor: pointer; background-color: #e5e7eb; }
+        .sort-icon { display: inline-block; margin-left: 8px; opacity: 0.5; transition: opacity 0.2s; }
+        .sortable:hover .sort-icon { opacity: 1; }
+        .tab { cursor: pointer; transition: all 0.2s ease-in-out; }
+        .tab-active { border-color: #2563eb; color: #2563eb; background-color: #dbeafe; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #a8a29e; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #78716c; }
+        .profile-img-preview, .detail-profile-img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid #e5e7eb;
+        }
+        .modal-open { overflow: hidden; }
+        table thead th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            z-index: 10;
+        }
+        /* New: Clickable table rows */
+        .clickable-row { cursor: pointer; }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+        <!-- Header -->
+        <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">Pengelola Data Mahasiswa</h1>
+                <p class="text-gray-500 mt-1">Unggah, kelola, dan lihat data mahasiswa dengan mudah.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="connectionStatus" class="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-800">Connecting...</span>
+                <button id="openSettingsButton" class="p-2 border rounded-full text-sm hover:bg-gray-100 aspect-square">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311a1.464 1.464 0 0 1-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413-1.4-2.397 0-2.81l.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- CSV Upload Section -->
+        <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+            <h2 class="text-lg font-semibold mb-3">Unggah Data dari CSV</h2>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <div id="csvDropArea" class="flex-grow w-full p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                    <label for="csvFileInput" class="cursor-pointer">
+                        <p class="text-gray-600">Seret & lepas file CSV di sini, atau klik untuk memilih file</p>
+                        <p class="text-xs text-gray-400 mt-1">Mendukung unggah banyak file sekaligus</p>
+                    </label>
+                    <input type="file" id="csvFileInput" class="hidden" accept=".csv" multiple>
+                </div>
+                <div class="flex-shrink-0 flex flex-col gap-2 w-full sm:w-auto">
+                    <button id="uploadButton" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors opacity-60 flex items-center justify-center gap-2" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
+                        Proses & Simpan
+                    </button>
+                    <button id="downloadSampleCsvButton" class="w-full bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors text-sm">Unduh Contoh CSV</button>
+                </div>
+            </div>
+            <div id="selectedFileList" class="mt-3 text-sm text-gray-600"></div>
+        </div>
+
+        <!-- Tabs for different views -->
+        <div class="mb-4 border-b border-gray-200">
+            <nav class="flex -mb-px space-x-6" aria-label="Tabs">
+                <button id="tabDashboard" class="tab py-3 px-1 border-b-2 font-medium text-sm tab-active">Dashboard Utama</button>
+                <button id="tabRombel" class="tab py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700">Tampilan Rombel</button>
+                <button id="tabGrup" class="tab py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700">Tampilan Grup</button>
+            </nav>
+        </div>
+
+        <!-- Dashboard View -->
+        <div id="dashboardView">
+            <div class="bg-white rounded-lg shadow-md p-4">
+                 <!-- Filters & Controls -->
+                <div class="flex flex-wrap items-center gap-3 mb-4">
+                    <div class="flex-grow">
+                        <input id="searchInput" type="search" placeholder="Cari berdasarkan NIM, Nama, atau Rombel..." class="p-2 border rounded-lg w-full sm:w-72" />
+                    </div>
+                     <div class="flex items-center gap-2">
+                        <select id="rombelFilter" class="p-2 border rounded-lg text-sm">
+                            <option value="">Semua Rombel</option>
+                        </select>
+                    </div>
+                    <div class="ml-auto flex items-center gap-2">
+                        <button id="addStudentButton" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                            Tambah
+                        </button>
+                        <button id="exportButton" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
+                            Ekspor
+                        </button>
+                    </div>
+                </div>
+                <!-- Bulk Actions Toolbar -->
+                <div id="bulkActionsToolbar" class="hidden bg-gray-100 p-2 rounded-lg mb-4 flex items-center justify-between">
+                     <span id="selectionCount" class="text-sm font-medium text-gray-700"></span>
+                     <div class="flex items-center gap-2">
+                        <button id="exportSelectedButton" class="px-3 py-1 bg-green-100 text-green-800 rounded-md text-sm hover:bg-green-200">Ekspor Pilihan</button>
+                        <button id="deleteSelectedButton" class="px-3 py-1 bg-red-100 text-red-800 rounded-md text-sm hover:bg-red-200">Hapus Pilihan</button>
+                     </div>
+                </div>
+
+                <!-- Main Table -->
+                <div class="overflow-x-auto">
+                    <div id="tableWrapper" class="max-h-[60vh] overflow-auto border rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200">
+                           <thead class="bg-gray-50">
+                               <tr>
+                                   <th class="px-4 py-2"><input id="selectAllCheckbox" type="checkbox" /></th>
+                                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="nim">NIM <span class="sort-icon">↕️</span></th>
+                                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="rombel">Rombel <span class="sort-icon">↕️</span></th>
+                                   <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="nama">Nama <span class="sort-icon">↕️</span></th>
+                                   <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                               </tr>
+                           </thead>
+                           <tbody id="studentTableBody" class="bg-white divide-y divide-gray-200">
+                                <!-- Empty State will be injected here -->
+                           </tbody>
+                        </table>
+                    </div>
+                    <!-- Pagination / Controls -->
+                    <div class="flex items-center justify-between mt-3">
+                        <div id="tableSummary" class="text-sm text-gray-600"></div>
+                        <div class="flex items-center gap-3">
+                            <label class="text-sm text-gray-600">Baris</label>
+                            <select id="pageSizeSelect" class="p-1 border rounded-lg text-sm">
+                                <option value="10">10</option>
+                                <option value="25" selected>25</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            <div id="paginationControls" class="flex items-center gap-2">
+                                <button id="prevPageBtn" class="px-2 py-1 rounded-md border bg-white text-sm">Sebelumnya</button>
+                                <span id="pageInfo" class="text-sm text-gray-600"></span>
+                                <button id="nextPageBtn" class="px-2 py-1 rounded-md border bg-white text-sm">Berikutnya</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rombel View -->
+        <div id="rombelView" class="hidden">
+            <div id="rombelTablesContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Rombel cards will be injected here -->
+            </div>
+        </div>
+
+        <!-- Grup View -->
+        <div id="grupView" class="hidden">
+            <div class="bg-white rounded-lg shadow-md p-4">
+                <div class="relative mb-4 max-w-md">
+                    <input type="search" id="grupSearchInput" placeholder="Cari nama grup..." class="w-full p-2 border rounded-lg">
+                </div>
+                <div id="grupListContainer" class="flex flex-wrap gap-3 mb-4">
+                    <!-- Group buttons will be injected here -->
+                </div>
+                <div id="grupTableContainer">
+                    <p class="text-center text-gray-500 py-8">Pilih atau cari grup untuk melihat anggotanya.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
+            <div class="p-6">
+                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                    <img id="detailPhoto" src="https://placehold.co/100x100/e2e8f0/64748b?text=Foto" alt="Foto Profil" class="detail-profile-img flex-shrink-0">
+                    <div class="text-center sm:text-left">
+                        <h3 id="detailName" class="text-2xl font-bold text-gray-800">Nama Mahasiswa</h3>
+                        <p id="detailNimRombel" class="text-gray-600">NIM - Rombel</p>
+                    </div>
+                </div>
+                <div class="mt-6 border-t pt-4 space-y-3">
+                    <div class="flex">
+                        <span class="w-1/3 text-gray-500 font-medium">No. Telepon</span>
+                        <span id="detailPhone" class="w-2/3 text-gray-800"></span>
+                    </div>
+                    <div class="flex">
+                        <span class="w-1/3 text-gray-500 font-medium">Sosial Media</span>
+                        <span id="detailSocial" class="w-2/3 text-gray-800"></span>
+                    </div>
+                    <div class="flex">
+                        <span class="w-1/3 text-gray-500 font-medium">GitHub</span>
+                        <a id="detailGithub" href="#" target="_blank" class="w-2/3 text-blue-600 hover:underline"></a>
+                    </div>
+                </div>
+                <div class="mt-6 border-t pt-4">
+                    <h4 class="text-lg font-semibold text-gray-700 mb-2">Relasi (Satu Rombel)</h4>
+                    <div id="detailRelations" class="max-h-40 overflow-y-auto space-y-2 pr-2"></div>
+                </div>
+                <div class="mt-4 border-t pt-4">
+                    <h4 class="text-lg font-semibold text-gray-700 mb-2">Grup & Organisasi Lain</h4>
+                    <div id="detailCustomRelations" class="max-h-40 overflow-y-auto space-y-2 pr-2"></div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-6 py-3 text-right rounded-b-lg">
+                <button id="closeDetailButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Tutup</button>
+            </div>
+        </div>
+    </div>
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-full overflow-y-auto">
+            <form id="editForm" class="p-6 space-y-4">
+                <h3 id="editModalTitle" class="text-2xl font-bold text-gray-800">Edit Profil Mahasiswa</h3>
+                <div class="text-center">
+                    <img id="photoPreview" src="https://placehold.co/100x100/e2e8f0/64748b?text=Foto" alt="Foto Profil" class="profile-img-preview mx-auto mb-2">
+                    <label for="photoInput" class="cursor-pointer text-sm text-blue-600 hover:underline">Ubah Foto</label>
+                    <input type="file" id="photoInput" class="hidden" accept="image/*">
+                </div>
+                <div>
+                    <label for="editNIM" class="block text-sm font-medium text-gray-700">NIM</label>
+                    <input type="text" id="editNIM" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="editNama" class="block text-sm font-medium text-gray-700">Nama Lengkap</label>
+                    <input type="text" id="editNama" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="editRombel" class="block text-sm font-medium text-gray-700">Rombel</label>
+                    <input type="text" id="editRombel" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div>
+                    <label for="editTelepon" class="block text-sm font-medium text-gray-700">Nomor Telepon</label>
+                    <input type="tel" id="editTelepon" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Contoh: 081234567890">
+                </div>
+                <div>
+                    <label for="editSosmed" class="block text-sm font-medium text-gray-700">Sosial Media (Instagram)</label>
+                    <input type="text" id="editSosmed" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Contoh: @username">
+                </div>
+                <div>
+                    <label for="editGithub" class="block text-sm font-medium text-gray-700">GitHub</label>
+                    <input type="text" id="editGithub" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Contoh: username">
+                </div>
+                <div class="border-t pt-4">
+                    <label for="relationInput" class="block text-sm font-medium text-gray-700">Grup & Relasi</label>
+                    <div id="relationsList" class="flex flex-wrap gap-2 mt-2 mb-2"></div>
+                    <div class="flex gap-2">
+                        <input type="text" id="relationInput" class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" placeholder="Nama Grup (e.g. Kelompok Osjur)">
+                        <button type="button" id="addRelationButton" class="flex-shrink-0 bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Tambah</button>
+                    </div>
+                </div>
+                <div class="flex justify-end space-x-4 pt-4">
+                    <button type="button" id="cancelEditButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Batal</button>
+                    <button type="submit" id="saveEditButton" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="deleteConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full text-center">
+            <h3 class="text-xl font-bold mb-4 text-red-600">Konfirmasi Hapus</h3>
+            <p id="deleteConfirmMessage" class="text-gray-600 mb-6"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="cancelDeleteButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Batal</button>
+                <button id="confirmDeleteButton" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700">Hapus</button>
+            </div>
+        </div>
+    </div>
+    <div id="notificationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full text-center">
+            <h3 id="modalTitle" class="text-xl font-bold mb-4"></h3>
+            <p id="modalMessage" class="text-gray-600 mb-6"></p>
+            <button id="modalCloseButton" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Tutup</button>
+        </div>
+    </div>
+    <div id="fileNameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full">
+            <h3 class="text-xl font-bold mb-4">Masukkan Nama File</h3>
+            <p class="text-gray-600 mb-4 text-sm">Masukkan nama untuk file Excel Anda (tanpa ekstensi .xlsx).</p>
+            <input type="text" id="fileNameInput" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6" placeholder="Contoh: Data_Mahasiswa_TI">
+            <div class="flex justify-end space-x-4">
+                <button id="cancelDownloadButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Batal</button>
+                <button id="confirmDownloadButton" class="bg-green-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-700">Download</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Settings Modal -->
+    <div id="firebaseSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-2xl w-full">
+            <h3 class="text-xl font-bold mb-3">Pengaturan Firebase</h3>
+            <p class="text-sm text-gray-600 mb-4">Isi konfigurasi Firebase (objek config) dan token autentikasi jika perlu. Data disimpan di localStorage untuk percobaan lokal.</p>
+            <label class="text-xs text-gray-600">Firebase Config (JSON)</label>
+            <textarea id="firebaseConfigInput" class="w-full h-36 p-2 border rounded mb-3 font-mono text-xs" placeholder='{"apiKey":"...","authDomain":"..."}'></textarea>
+            <label class="text-xs text-gray-600">App ID (opsional)</label>
+            <input id="firebaseAppIdInput" class="w-full p-2 border rounded mb-3" placeholder="app-id-opsional" />
+            <label class="text-xs text-gray-600">Auth Token (opsional)</label>
+            <input id="firebaseAuthTokenInput" class="w-full p-2 border rounded mb-3" placeholder="custom token (jika ada)" />
+            <div id="firebaseSettingsMessage" class="text-sm mb-3"></div>
+            <div class="text-xs text-gray-500 mb-3">
+                Tips: Jika muncul error "Auth failed", kamu bisa sementara mengaktifkan Anonymous Authentication pada Firebase Console → Authentication → Sign-in method → aktifkan "Anonymous" agar halaman dapat terhubung tanpa token. Atau gunakan Custom Token dari server.
+            </div>
+            <div class="flex justify-end gap-3">
+                <button id="disconnectFirebaseButton" class="bg-yellow-100 text-yellow-800 py-2 px-4 rounded">Disconnect</button>
+                <button id="testFirebaseButton" class="bg-gray-100 text-gray-800 py-2 px-4 rounded">Test & Connect</button>
+                <button id="saveFirebaseButton" class="bg-blue-600 text-white py-2 px-4 rounded">Simpan & Gunakan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSV Preview Modal -->
+    <div id="csvPreviewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <h3 class="text-xl font-bold mb-3">Pratinjau CSV Sebelum Unggah</h3>
+            <p id="csvPreviewSummary" class="text-sm text-gray-600 mb-2"></p>
+
+            <div class="mb-3">
+                <label class="text-xs text-gray-600">Header terdeteksi per-file</label>
+                <div id="perFileHeaderList" class="mt-1 text-xs text-gray-700 bg-gray-50 p-2 rounded max-h-28 overflow-auto"></div>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4 mb-2">
+                <div class="flex-1">
+                    <label class="text-sm font-medium text-gray-700">Pemetaan Kolom CSV → Field Database</label>
+                     <div class="flex items-center gap-2 mt-1 mb-2">
+                        <label class="text-xs"><input type="checkbox" id="useAsDefaultCheckbox" class="mr-1"> Gunakan sebagai default</label>
+                        <button id="saveMappingButton" class="ml-auto text-sm bg-gray-100 py-1 px-3 rounded">Simpan Pemetaan</button>
+                    </div>
+                    <div id="csvColumnMapping" class="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-3"></div>
+                </div>
+                <div class="w-full md:w-48">
+                    <label class="text-sm font-medium text-gray-700">Opsi Unggah</label>
+                    <div class="mt-2">
+                         <label class="text-xs text-gray-600">Jika ada duplikat NIM</label>
+                         <select id="duplicateStrategySelect" class="w-full mt-1 p-2 border rounded text-sm">
+                             <option value="keepLast">Ambil data terakhir (default)</option>
+                             <option value="keepFirst">Ambil data pertama</option>
+                             <option value="merge">Gabungkan (data baru menimpa)</option>
+                         </select>
+                         <button id="fixDuplicatesButton" class="w-full mt-2 bg-yellow-500 text-white px-3 py-2 rounded text-sm">Terapkan</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="csvPreviewWarnings" class="mb-2 text-sm"></div>
+            <div id="csvPreviewContent" class="text-sm text-gray-800 overflow-auto mb-4 flex-grow border rounded p-2"></div>
+            <div id="csvUploadProgress" class="mb-4 hidden">
+                <div class="w-full bg-gray-200 rounded h-3 overflow-hidden">
+                    <div id="csvUploadProgressBar" class="bg-blue-600 h-3 w-0 transition-all duration-300"></div>
+                </div>
+                <p id="csvUploadProgressText" class="text-xs text-gray-600 mt-2"></p>
+            </div>
+            <div class="flex justify-end gap-3 border-t pt-4">
+                <button id="cancelPreviewButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Batal</button>
+                <button id="confirmUploadButton" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Konfirmasi & Unggah</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, query, updateDoc, deleteDoc, getDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- GLOBAL VARIABLES & CONFIG ---
+            let appInstance = null;
+            let auth = null;
+            let db = null;
+            let storage = null;
+            let appId = typeof __app_id !== 'undefined' ? __app_id : (localStorage.getItem('firebase_app_id') || 'default-app-id');
+            let initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : (localStorage.getItem('firebase_auth_token') || null);
+            const collectionPath = () => `/artifacts/${appId}/public/data/mahasiswa`;
+
+            // DOM refs
+            const connectionStatus = document.getElementById('connectionStatus');
+            const openSettingsButton = document.getElementById('openSettingsButton');
+            const firebaseSettingsModal = document.getElementById('firebaseSettingsModal');
+            const firebaseConfigInput = document.getElementById('firebaseConfigInput');
+            const firebaseAppIdInput = document.getElementById('firebaseAppIdInput');
+            const firebaseAuthTokenInput = document.getElementById('firebaseAuthTokenInput');
+            const firebaseSettingsMessage = document.getElementById('firebaseSettingsMessage');
+            const saveFirebaseButton = document.getElementById('saveFirebaseButton');
+            const testFirebaseButton = document.getElementById('testFirebaseButton');
+            const disconnectFirebaseButton = document.getElementById('disconnectFirebaseButton');
+            const fileInput = document.getElementById('csvFileInput');
+            const uploadButton = document.getElementById('uploadButton');
+            const downloadSampleCsvButton = document.getElementById('downloadSampleCsvButton');
+            const exportButton = document.getElementById('exportButton');
+            const searchInput = document.getElementById('searchInput');
+            const tableBody = document.getElementById('studentTableBody');
+            const tableSummary = document.getElementById('tableSummary');
+            const notificationModal = document.getElementById('notificationModal');
+            const modalCloseButton = document.getElementById('modalCloseButton');
+            const fileNameModal = document.getElementById('fileNameModal');
+            const confirmDownloadButton = document.getElementById('confirmDownloadButton');
+            const cancelDownloadButton = document.getElementById('cancelDownloadButton');
+            const tabDashboard = document.getElementById('tabDashboard');
+            const tabRombel = document.getElementById('tabRombel');
+            const tabGrup = document.getElementById('tabGrup');
+            const dashboardView = document.getElementById('dashboardView');
+            const rombelView = document.getElementById('rombelView');
+            const grupView = document.getElementById('grupView');
+            const rombelTablesContainer = document.getElementById('rombelTablesContainer');
+            const grupSearchInput = document.getElementById('grupSearchInput');
+            const grupListContainer = document.getElementById('grupListContainer');
+            const grupTableContainer = document.getElementById('grupTableContainer');
+            const addStudentButton = document.getElementById('addStudentButton');
+            const csvPreviewModal = document.getElementById('csvPreviewModal');
+            const csvPreviewContent = document.getElementById('csvPreviewContent');
+            const csvPreviewSummary = document.getElementById('csvPreviewSummary');
+            const cancelPreviewButton = document.getElementById('cancelPreviewButton');
+            const confirmUploadButton = document.getElementById('confirmUploadButton');
+            const selectedFileList = document.getElementById('selectedFileList');
+            const editModal = document.getElementById('editModal');
+            const editModalTitle = document.getElementById('editModalTitle');
+            const editForm = document.getElementById('editForm');
+            const editNIMInput = document.getElementById('editNIM');
+            const photoPreview = document.getElementById('photoPreview');
+            const photoInput = document.getElementById('photoInput');
+            const cancelEditButton = document.getElementById('cancelEditButton');
+            const saveEditButton = document.getElementById('saveEditButton');
+            const deleteConfirmModal = document.getElementById('deleteConfirmModal');
+            const deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
+            const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+            const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+            const detailModal = document.getElementById('detailModal');
+            const closeDetailButton = document.getElementById('closeDetailButton');
+            const relationsList = document.getElementById('relationsList');
+            const relationInput = document.getElementById('relationInput');
+            const addRelationButton = document.getElementById('addRelationButton');
+            const rombelFilter = document.getElementById('rombelFilter');
+            const bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
+            const selectionCount = document.getElementById('selectionCount');
+            const exportSelectedButton = document.getElementById('exportSelectedButton');
+            const deleteSelectedButton = document.getElementById('deleteSelectedButton');
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const prevPageBtn = document.getElementById('prevPageBtn');
+            const nextPageBtn = document.getElementById('nextPageBtn');
+            const csvDropArea = document.getElementById('csvDropArea');
+
+            // --- State Variables ---
+            let allStudents = [];
+            let filteredStudents = [];
+            let displayedStudents = [];
+            let currentPage = 1;
+            let pageSize = 25;
+            let sortState = { column: 'nama', direction: 'asc' };
+            let currentEditingStudent = null;
+            let studentToDelete = null;
+            let newPhotoFile = null;
+            let uniqueGroups = [];
+            let currentEditMode = 'add';
+            const selectedRows = new Set();
+
+            // --- Firebase Functions ---
+            function updateConnectionStatus(connected, text) {
+                if (connected) {
+                    connectionStatus.classList.remove('bg-red-100','text-red-700');
+                    connectionStatus.classList.add('bg-green-100','text-green-700');
+                    connectionStatus.textContent = text || 'Terhubung';
+                } else {
+                    connectionStatus.classList.remove('bg-green-100','text-green-700');
+                    connectionStatus.classList.add('bg-red-100','text-red-700');
+                    connectionStatus.textContent = text || 'Terputus';
+                }
+            }
+
+            function loadSavedFirebaseConfig() {
+                const cfg = localStorage.getItem('firebase_config');
+                if (cfg) return JSON.parse(cfg);
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    try { return JSON.parse(__firebase_config); } catch(e) { return null; }
+                }
+                return null;
+            }
+
+            function saveFirebaseConfigToStorage(cfg, id, token) {
+                localStorage.setItem('firebase_config', JSON.stringify(cfg));
+                if (id) localStorage.setItem('firebase_app_id', id); else localStorage.removeItem('firebase_app_id');
+                if (token) localStorage.setItem('firebase_auth_token', token); else localStorage.removeItem('firebase_auth_token');
+            }
+
+            function clearSavedFirebaseConfig() {
+                localStorage.removeItem('firebase_config');
+                localStorage.removeItem('firebase_app_id');
+                localStorage.removeItem('firebase_auth_token');
+            }
+
+            async function initFirebaseFromConfig(cfg, id = null, token = null) {
+                try {
+                    if (!cfg || Object.keys(cfg).length === 0) {
+                        updateConnectionStatus(false, 'Tidak ada Konfigurasi');
+                        return false;
+                    }
+                    appInstance = initializeApp(cfg);
+                    auth = getAuth(appInstance);
+                    db = getFirestore(appInstance);
+                    storage = getStorage(appInstance);
+                    if (id) appId = id;
+                    if (token) initialAuthToken = token;
+
+                    await (initialAuthToken ? signInWithCustomToken(auth, initialAuthToken) : signInAnonymously(auth));
+                    updateConnectionStatus(true, 'Terhubung');
+                    return true;
+                } catch (err) {
+                    console.error('Inisialisasi Firebase gagal', err);
+                    const msg = err && err.message ? err.message : String(err);
+                    if (firebaseSettingsMessage) firebaseSettingsMessage.textContent = 'Inisialisasi gagal: ' + msg;
+                    updateConnectionStatus(false, 'Inisialisasi Gagal');
+                    return false;
+                }
+            }
+
+            (async () => {
+                const cfg = loadSavedFirebaseConfig();
+                if (cfg) {
+                    firebaseConfigInput.value = JSON.stringify(cfg, null, 2);
+                    firebaseAppIdInput.value = appId || '';
+                    firebaseAuthTokenInput.value = initialAuthToken || '';
+                    await initFirebaseFromConfig(cfg, appId, initialAuthToken);
+                } else {
+                    updateConnectionStatus(false, 'Tidak ada Konfigurasi');
+                }
+            })();
+
+            // --- MODAL & NOTIFICATION ---
+            function openModal(modalElement) {
+                modalElement.classList.remove('hidden');
+                document.body.classList.add('modal-open');
+            }
+
+            function closeModal(modalElement) {
+                modalElement.classList.add('hidden');
+                const isAnyModalOpen = document.querySelector('.fixed.inset-0:not(.hidden)');
+                if (!isAnyModalOpen) {
+                    document.body.classList.remove('modal-open');
+                }
+            }
+
+            function showNotification(title, message, isError = false) {
+                const modalTitle = notificationModal.querySelector('#modalTitle');
+                const modalMessage = notificationModal.querySelector('#modalMessage');
+                modalTitle.textContent = title;
+                modalMessage.textContent = message;
+                modalTitle.classList.toggle('text-red-600', isError);
+                modalTitle.classList.toggle('text-green-600', !isError);
+                openModal(notificationModal);
+            }
+
+            // --- TABLE & DATA RENDERING ---
+            function renderTable() {
+                tableBody.innerHTML = '';
+                if (allStudents.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-12 px-6">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+                                <h3 class="mt-2 text-sm font-medium text-gray-900">Belum ada data</h3>
+                                <p class="mt-1 text-sm text-gray-500">Mulai dengan mengunggah file CSV.</p>
+                            </td>
+                        </tr>`;
+                    return;
+                }
+                if (displayedStudents.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="5" class="px-6 py-12 text-center text-sm text-gray-500">Tidak ada data yang cocok dengan filter Anda.</td></tr>';
+                    return;
+                }
+
+                displayedStudents.forEach(s => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'hover:bg-gray-50 clickable-row';
+                    tr.dataset.nim = s.nim;
+                    const isChecked = selectedRows.has(s.nim);
+                    tr.innerHTML = `
+                        <td class="px-4 py-2"><input class="rowCheckbox" data-nim="${s.nim}" type="checkbox" ${isChecked ? 'checked' : ''} /></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${s.nim}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.rombel || ''}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.nama}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
+                            <button class="edit-btn text-blue-600 hover:text-blue-800 mr-3" data-nim="${s.nim}">Edit</button>
+                            <button class="delete-btn text-red-600 hover:text-red-800" data-nim="${s.nim}">Hapus</button>
+                        </td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            function updateTableSummary(displayedCount, totalFiltered, totalAll) {
+                if (totalAll === 0) {
+                    tableSummary.textContent = '';
+                } else if (totalFiltered === totalAll) {
+                    tableSummary.textContent = `Menampilkan ${totalFiltered} data.`;
+                } else {
+                    tableSummary.textContent = `Menampilkan ${displayedCount} dari ${totalFiltered} data (total ${totalAll} data).`;
+                }
+            }
+
+            function populateRombelFilter() {
+                const rombels = [...new Set(allStudents.map(s => s.rombel).filter(Boolean))].sort();
+                rombelFilter.innerHTML = '<option value="">Semua Rombel</option>';
+                rombels.forEach(r => {
+                    const option = document.createElement('option');
+                    option.value = r;
+                    option.textContent = r;
+                    rombelFilter.appendChild(option);
+                });
+            }
+
+            // --- VIEW-SPECIFIC RENDERERS ---
+            function switchView(view) {
+                [dashboardView, rombelView, grupView].forEach(v => v.classList.add('hidden'));
+                [tabDashboard, tabRombel, tabGrup].forEach(t => {
+                    t.classList.remove('tab-active');
+                    t.classList.add('text-gray-500', 'hover:text-gray-700');
+                });
+
+                if (view === 'rombel') {
+                    rombelView.classList.remove('hidden');
+                    tabRombel.classList.add('tab-active');
+                    tabRombel.classList.remove('text-gray-500', 'hover:text-gray-700');
+                } else if (view === 'grup') {
+                    grupView.classList.remove('hidden');
+                    tabGrup.classList.add('tab-active');
+                    tabGrup.classList.remove('text-gray-500', 'hover:text-gray-700');
+                } else {
+                    dashboardView.classList.remove('hidden');
+                    tabDashboard.classList.add('tab-active');
+                    tabDashboard.classList.remove('text-gray-500', 'hover:text-gray-700');
+                }
+            }
+
+            function renderRombelView(students) {
+                rombelTablesContainer.innerHTML = students.length === 0 ? '<p class="text-center text-gray-500 col-span-full">Tidak ada data untuk ditampilkan.</p>' : '';
+                if(students.length === 0) return;
+
+                const groupedByRombel = students.reduce((acc, student) => {
+                    const rombel = student.rombel || 'Tanpa Rombel';
+                    if (!acc[rombel]) acc[rombel] = [];
+                    acc[rombel].push(student);
+                    return acc;
+                }, {});
+                Object.keys(groupedByRombel).sort().forEach(rombel => {
+                    const studentsInRombel = groupedByRombel[rombel];
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-lg shadow-md p-4';
+                    let listHTML = `<h3 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">Rombel: ${rombel} <span class="font-normal text-gray-500">(${studentsInRombel.length})</span></h3><div class="max-h-60 overflow-y-auto space-y-2 pr-2">`;
+                    studentsInRombel.sort((a, b) => a.nama.localeCompare(b.nama)).forEach(student => {
+                        listHTML += `<div class="flex justify-between items-center text-sm"><span class="truncate">${student.nama}</span><button data-nim="${student.nim}" class="details-btn text-blue-600 hover:text-blue-800 flex-shrink-0 ml-2">Detail</button></div>`;
+                    });
+                    listHTML += `</div>`;
+                    card.innerHTML = listHTML;
+                    rombelTablesContainer.appendChild(card);
+                });
+            }
+
+            function prepareGrupView(students) {
+                const allGroups = students.flatMap(s => s.relations || []);
+                uniqueGroups = [...new Set(allGroups)].sort();
+                renderGroupList();
+            }
+
+            function renderGroupList() {
+                grupListContainer.innerHTML = '';
+                const searchTerm = grupSearchInput.value.toLowerCase();
+                const filteredGroups = uniqueGroups.filter(g => g.toLowerCase().includes(searchTerm));
+
+                if (filteredGroups.length === 0 && uniqueGroups.length > 0) {
+                    grupListContainer.innerHTML = `<p class="text-sm text-gray-500">Tidak ada grup yang cocok dengan "${grupSearchInput.value}".</p>`;
+                } else {
+                    filteredGroups.forEach(group => {
+                        const button = document.createElement('button');
+                        button.className = "px-3 py-1 bg-gray-100 text-gray-800 rounded-md text-sm hover:bg-gray-200";
+                        button.textContent = group;
+                        button.onclick = () => {
+                            grupSearchInput.value = group;
+                            renderGrupTable(group);
+                        };
+                        grupListContainer.appendChild(button);
+                    });
+                }
+            }
+
+            function renderGrupTable(selectedGroup) {
+                if (!selectedGroup) {
+                    grupTableContainer.innerHTML = '<p class="text-center text-gray-500 py-8">Pilih atau cari grup untuk melihat anggotanya.</p>';
+                    return;
+                }
+                const members = allStudents.filter(s => s.relations && s.relations.includes(selectedGroup));
+
+                let tableHTML = `<h3 class="text-xl font-semibold text-gray-700 my-3">Anggota: ${selectedGroup} <span class="text-base font-normal text-gray-500">(${members.length} mahasiswa)</span></h3><div class="overflow-x-auto border rounded-lg"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">NIM</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rombel</th><th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th></tr></thead><tbody class="bg-white divide-y divide-gray-200">`;
+                members.sort((a, b) => a.nama.localeCompare(b.nama)).forEach(student => {
+                    tableHTML += `<tr class="hover:bg-gray-50 clickable-row" data-nim="${student.nim}"><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${student.nim}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${student.nama}</td><td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${student.rombel}</td><td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium"><button data-nim="${student.nim}" class="details-btn text-gray-600 hover:text-gray-900">Detail</button></td></tr>`;
+                });
+                tableHTML += `</tbody></table></div>`;
+                grupTableContainer.innerHTML = tableHTML;
+            }
+
+            // --- MODALS (Detail, Edit, Delete) ---
+            function openDetailModal(student) {
+                document.getElementById('detailPhoto').src = student.photoURL || 'https://placehold.co/100x100/e2e8f0/64748b?text=Foto';
+                document.getElementById('detailName').textContent = student.nama || 'N/A';
+                document.getElementById('detailNimRombel').textContent = `${student.nim} - ${student.rombel || 'N/A'}`;
+                document.getElementById('detailPhone').textContent = student.phone || '-';
+                document.getElementById('detailSocial').textContent = student.socialMedia || '-';
+                const githubLink = document.getElementById('detailGithub');
+                if (student.github) {
+                    githubLink.href = `https://github.com/${student.github}`;
+                    githubLink.textContent = `github.com/${student.github}`;
+                } else {
+                    githubLink.textContent = '-';
+                    githubLink.href = '#';
+                }
+
+                const relationsContainer = document.getElementById('detailRelations');
+                relationsContainer.innerHTML = '';
+                if (student.rombel) {
+                    const relatedStudents = allStudents.filter(s => s.rombel === student.rombel && s.nim !== student.nim);
+                    if (relatedStudents.length > 0) {
+                        relatedStudents.sort((a, b) => a.nama.localeCompare(b.nama)).forEach(related => {
+                            const relationEl = document.createElement('div');
+                            relationEl.className = 'text-sm p-2 bg-gray-50 rounded';
+                            relationEl.innerHTML = `<p class="font-medium text-gray-800">${related.nama}</p><p class="text-xs text-gray-500">${related.nim}</p>`;
+                            relationsContainer.appendChild(relationEl);
+                        });
+                    } else {
+                        relationsContainer.innerHTML = '<p class="text-sm text-gray-500">Tidak ada mahasiswa lain di rombel ini.</p>';
+                    }
+                } else {
+                    relationsContainer.innerHTML = '<p class="text-sm text-gray-500">Mahasiswa ini tidak memiliki data rombel.</p>';
+                }
+
+                const customRelationsContainer = document.getElementById('detailCustomRelations');
+                customRelationsContainer.innerHTML = '';
+                if (student.relations && student.relations.length > 0) {
+                    student.relations.forEach(group => {
+                        const groupEl = document.createElement('div');
+                        groupEl.className = 'text-sm p-2 bg-blue-50 rounded';
+                        groupEl.innerHTML = `<p class="font-medium text-blue-800">${group}</p>`;
+                        customRelationsContainer.appendChild(groupEl);
+                    });
+                } else {
+                    customRelationsContainer.innerHTML = '<p class="text-sm text-gray-500">Tidak tergabung dalam grup lain.</p>';
+                }
+
+                openModal(detailModal);
+            }
+
+            function renderRelationsEditor(relations = []) {
+                relationsList.innerHTML = '';
+                relations.forEach(relation => {
+                    const tag = document.createElement('span');
+                    tag.className = 'bg-blue-100 text-blue-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded flex items-center';
+                    tag.textContent = relation;
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'ml-2 text-blue-800 hover:text-blue-900 font-bold';
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.onclick = () => tag.remove();
+                    tag.appendChild(removeBtn);
+                    relationsList.appendChild(tag);
+                });
+            }
+
+            function openEditModal(student) {
+                currentEditMode = 'edit';
+                currentEditingStudent = student;
+                newPhotoFile = null;
+                editModalTitle.textContent = 'Edit Profil Mahasiswa';
+                editNIMInput.value = student.nim;
+                editNIMInput.readOnly = true;
+                editNIMInput.classList.add('bg-gray-100');
+                document.getElementById('editNama').value = student.nama || '';
+                document.getElementById('editRombel').value = student.rombel || '';
+                document.getElementById('editTelepon').value = student.phone || '';
+                document.getElementById('editSosmed').value = student.socialMedia || '';
+                document.getElementById('editGithub').value = student.github || '';
+                photoPreview.src = student.photoURL || 'https://placehold.co/100x100/e2e8f0/64748b?text=Foto';
+                photoInput.value = '';
+                renderRelationsEditor(student.relations);
+                openModal(editModal);
+            }
+
+            function openAddModal() {
+                currentEditMode = 'add';
+                currentEditingStudent = null;
+                newPhotoFile = null;
+                editModalTitle.textContent = 'Tambah Mahasiswa Baru';
+                editForm.reset();
+                editNIMInput.readOnly = false;
+                editNIMInput.classList.remove('bg-gray-100');
+                photoPreview.src = 'https://placehold.co/100x100/e2e8f0/64748b?text=Foto';
+                renderRelationsEditor([]);
+                openModal(editModal);
+            }
+
+            async function handleFormSubmit(e) {
+                e.preventDefault();
+                if(!db) return showNotification("Error", "Database tidak terhubung.", true);
+                saveEditButton.disabled = true;
+                saveEditButton.textContent = 'Menyimpan...';
+
+                try {
+                    const nim = editNIMInput.value.trim();
+                    if (!nim) {
+                        showNotification("Error", "NIM tidak boleh kosong.", true);
+                        return;
+                    }
+
+                    let photoURL = currentEditingStudent?.photoURL || null;
+                    if (newPhotoFile) {
+                        if(!storage) return showNotification("Error", "Storage tidak terhubung.", true);
+                        const photoRef = ref(storage, `student_photos/${nim}/${newPhotoFile.name}`);
+                        const snapshot = await uploadBytes(photoRef, newPhotoFile);
+                        photoURL = await getDownloadURL(snapshot.ref);
+                    }
+
+                    const relations = Array.from(relationsList.children).map(tag => tag.firstChild.textContent);
+
+                    const dataToSave = {
+                        nim: nim,
+                        nama: document.getElementById('editNama').value,
+                        rombel: document.getElementById('editRombel').value,
+                        phone: document.getElementById('editTelepon').value,
+                        socialMedia: document.getElementById('editSosmed').value,
+                        github: document.getElementById('editGithub').value,
+                        photoURL: photoURL,
+                        relations: relations
+                    };
+
+                    const studentDocRef = doc(db, collectionPath(), nim);
+                    await setDoc(studentDocRef, dataToSave, { merge: true });
+
+                    if (currentEditMode === 'add') {
+                        showNotification("Sukses", "Data mahasiswa baru berhasil ditambahkan.");
+                    } else {
+                        showNotification("Sukses", "Data mahasiswa berhasil diperbarui.");
+                    }
+
+                    closeModal(editModal);
+
+                } catch (error) {
+                    console.error("Error saving data:", error);
+                    showNotification("Error", "Gagal menyimpan data: " + error.message, true);
+                } finally {
+                    saveEditButton.disabled = false;
+                    saveEditButton.textContent = 'Simpan Perubahan';
+                }
+            }
+
+            function handleDeleteClick(student) {
+                studentToDelete = student;
+                deleteConfirmMessage.textContent = `Apakah Anda yakin ingin menghapus data untuk ${student.nama} (${student.nim})? Tindakan ini tidak dapat diurungkan.`;
+                openModal(deleteConfirmModal);
+            }
+
+            async function performDelete() {
+                if (!studentToDelete || !db) return;
+                confirmDeleteButton.disabled = true;
+                confirmDeleteButton.textContent = 'Menghapus...';
+                try {
+                    const studentDocRef = doc(db, collectionPath(), studentToDelete.nim);
+                    await deleteDoc(studentDocRef);
+                    showNotification("Sukses", `Data untuk ${studentToDelete.nama} berhasil dihapus.`);
+                } catch (error) {
+                    console.error("Error deleting data:", error);
+                    showNotification("Error", "Gagal menghapus data.", true);
+                } finally {
+                    studentToDelete = null;
+                    confirmDeleteButton.disabled = false;
+                    confirmDeleteButton.textContent = 'Hapus';
+                    closeModal(deleteConfirmModal);
+                }
+            }
+
+            // --- CSV HANDLING ---
+            function parseCSV(text) {
+                // Preprocess: remove leading rows that contain only separators/whitespace
+                try {
+                    const lines = text.split(/\r\n|\n|\r/);
+                    let firstUseful = 0;
+                    while (firstUseful < lines.length) {
+                        const ln = lines[firstUseful];
+                        // If the line contains at least one alphanumeric character, treat it as useful (header or data)
+                        if (/[A-Za-z0-9]/.test(ln)) break;
+                        firstUseful++;
+                    }
+                    if (firstUseful > 0) text = lines.slice(firstUseful).join('\n');
+                } catch (e) {
+                    // If anything goes wrong, fall back to original text
+                }
+
+                return new Promise((resolve, reject) => {
+                    Papa.parse(text, {
+                        header: true,
+                        skipEmptyLines: true,
+                        transformHeader: header => header.toLowerCase().trim().replace(/\s+/g, '_'),
+                        complete: (results) => {
+                            if (results.errors && results.errors.length) {
+                                return reject(new Error('Gagal mem-parsing CSV: ' + results.errors[0].message));
+                            }
+                            resolve({
+                                headerRow: results.meta && results.meta.fields ? results.meta.fields : [],
+                                students: results.data || []
+                            });
+                        },
+                        error: (err) => reject(err)
+                    });
+                });
+            }
+
+            function downloadSampleCSV() {
+                const sample = 'nim,rombel,nama\n12345678,TI-1A,Budi Doremi\n87654321,TI-1B,Cici Paramida\n';
+                const blob = new Blob([sample], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'contoh_data_mahasiswa.csv';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            }
+
+            let previewStudentsBatch = [];
+            let detectedCsvHeadersPerFile = {};
+            let detectedCsvHeaders = [];
+            let currentMapping = { nim: null, rombel: null, nama: null };
+
+            function loadDefaultMapping() {
+                try {
+                    const raw = localStorage.getItem('csv_default_mapping_' + appId);
+                    return raw ? JSON.parse(raw) : null;
+                } catch (e) { return null; }
+            }
+            function saveDefaultMapping(mapping) {
+                try {
+                    localStorage.setItem('csv_default_mapping_' + appId, JSON.stringify(mapping));
+                    return true;
+                } catch (e) { return false; }
+            }
+
+            function showCSVPreview(students, sourceFileNames = '') {
+                previewStudentsBatch = students;
+                csvPreviewSummary.textContent = `File: ${sourceFileNames} — ${students.length} baris data terdeteksi.`;
+
+                const perFileListEl = document.getElementById('perFileHeaderList');
+                perFileListEl.innerHTML = '';
+                Object.keys(detectedCsvHeadersPerFile).forEach(fname => {
+                    const headers = detectedCsvHeadersPerFile[fname] || [];
+                    const div = document.createElement('div');
+                    div.innerHTML = `<strong>${fname}:</strong> <span class="text-gray-600">${headers.join(', ')}</span>`;
+                    perFileListEl.appendChild(div);
+                });
+
+                detectedCsvHeaders = Array.from(new Set([].concat(...Object.values(detectedCsvHeadersPerFile))));
+
+                const mappingEl = document.getElementById('csvColumnMapping');
+                mappingEl.innerHTML = '';
+                const defaultMapping = loadDefaultMapping();
+                const fields = ['nim','rombel','nama'];
+                fields.forEach(f => {
+                    const wrap = document.createElement('div');
+                    const label = document.createElement('label');
+                    label.className = 'block text-xs font-medium text-gray-700 mb-1';
+                    label.textContent = f.toUpperCase();
+                    const sel = document.createElement('select');
+                    sel.className = 'p-2 border rounded w-full text-sm';
+                    sel.innerHTML = `<option value="">-- Pilih Kolom untuk ${f} --</option>` + detectedCsvHeaders.map(h => `<option value="${h}">${h}</option>`).join('');
+
+                    const aliases = {
+                        nim: ['nim', 'nrp', 'nim/nrp', 'nim_mahasiswa'],
+                        nama: ['nama', 'nama_lengkap', 'full_name', 'nama_mahasiswa', 'nama_full_rombel'],
+                        rombel: ['rombel', 'kelas', 'class', 'rombongan_belajar']
+                    };
+
+                    const preferredHeader = (defaultMapping && defaultMapping[f] && detectedCsvHeaders.includes(defaultMapping[f])) || aliases[f].find(alias => detectedCsvHeaders.includes(alias));
+                    if (preferredHeader) {
+                        sel.value = preferredHeader;
+                    }
+                    currentMapping[f] = sel.value || null;
+
+                    sel.onchange = () => {
+                        currentMapping[f] = sel.value || null;
+                        renderPreviewTable();
+                    };
+
+                    wrap.appendChild(label);
+                    wrap.appendChild(sel);
+                    mappingEl.appendChild(wrap);
+                });
+
+                renderPreviewTable();
+                openModal(csvPreviewModal);
+            }
+
+            function renderPreviewTable() {
+                const mappedData = previewStudentsBatch.map(row => ({
+                    nim: row[currentMapping.nim] || 'TIDAK ADA',
+                    nama: row[currentMapping.nama] || 'TIDAK ADA',
+                    rombel: row[currentMapping.rombel] || '-',
+                    _original: row
+                }));
+
+                const nimCounts = {};
+                mappedData.forEach(s => { nimCounts[s.nim] = (nimCounts[s.nim] || 0) + 1; });
+
+                const rows = mappedData.slice(0, 50).map(s => {
+                    const isDuplicate = nimCounts[s.nim] > 1;
+                    const nimInvalid = s.nim === 'TIDAK ADA';
+                    const namaInvalid = s.nama === 'TIDAK ADA';
+                    return `<tr class="border-b ${isDuplicate ? 'bg-yellow-50' : ''}">
+                        <td class="px-2 py-1 ${nimInvalid ? 'text-red-500 font-bold' : ''}">${s.nim} ${isDuplicate ? '<span class="text-xs text-yellow-700">(duplikat)</span>' : ''}</td>
+                        <td class="px-2 py-1">${s.rombel}</td>
+                        <td class="px-2 py-1 ${namaInvalid ? 'text-red-500 font-bold' : ''}">${s.nama}</td>
+                    </tr>`;
+                }).join('');
+
+                const table = `<table class="w-full text-left border"><thead class="bg-gray-100"><tr><th class="px-2 py-1 font-semibold">NIM</th><th class="px-2 py-1 font-semibold">Rombel</th><th class="px-2 py-1 font-semibold">Nama</th></tr></thead><tbody>${rows}</tbody></table>`;
+                csvPreviewContent.innerHTML = table + (previewStudentsBatch.length > 50 ? `<p class="text-xs text-gray-500 mt-2">Menampilkan 50 baris pertama dari ${previewStudentsBatch.length}.</p>` : '');
+            }
+
+            function mergeStudentData(existing, newData) {
+                const merged = { ...existing };
+                for (const key in newData) {
+                    if (newData[key] !== null && newData[key] !== undefined && newData[key] !== '') {
+                        merged[key] = newData[key];
+                    }
+                }
+                return merged;
+            }
+
+            function applyFixDuplicates(strategy) {
+                if (!previewStudentsBatch || previewStudentsBatch.length === 0) return;
+
+                const mappedData = previewStudentsBatch.map(row => ({
+                    nim: row[currentMapping.nim],
+                    nama: row[currentMapping.nama],
+                    rombel: row[currentMapping.rombel],
+                    _original: row
+                })).filter(s => s.nim && s.nim !== 'TIDAK ADA');
+
+                const byNim = new Map();
+                if (strategy === 'keepLast') {
+                    for (const s of mappedData) byNim.set(s.nim, s);
+                } else if (strategy === 'keepFirst') {
+                    for (const s of mappedData) if (!byNim.has(s.nim)) byNim.set(s.nim, s);
+                } else if (strategy === 'merge') {
+                     for (const s of mappedData) {
+                        if (!byNim.has(s.nim)) byNim.set(s.nim, { ...s });
+                        else byNim.set(s.nim, mergeStudentData(byNim.get(s.nim), s));
+                    }
+                }
+
+                const newBatchOriginals = Array.from(byNim.values()).map(s => s._original);
+                previewStudentsBatch = newBatchOriginals;
+
+                document.getElementById('csvPreviewWarnings').innerHTML = `<div class="text-green-700 bg-green-50 p-2 rounded">Duplikat diperbaiki. Sisa: ${newBatchOriginals.length} entri unik.</div>`;
+                renderPreviewTable();
+            }
+
+            async function performConfirmedUpload() {
+                if (!previewStudentsBatch || previewStudentsBatch.length === 0 || !db) {
+                    showNotification('Error', 'Tidak ada data untuk diunggah atau database tidak terhubung.', true);
+                    return;
+                }
+                if (!currentMapping.nim || !currentMapping.nama) {
+                    return showNotification('Error', 'Pemetaan untuk NIM dan Nama wajib diisi.', true);
+                }
+
+                confirmUploadButton.disabled = true;
+                confirmUploadButton.textContent = 'Mengunggah...';
+
+                const dataToUpload = previewStudentsBatch.map(row => ({
+                    nim: String(row[currentMapping.nim] || '').trim(),
+                    nama: String(row[currentMapping.nama] || '').trim(),
+                    rombel: String(row[currentMapping.rombel] || '').trim()
+                })).filter(s => s.nim && s.nama);
+
+                let added = 0, updated = 0, processed = 0;
+                const total = dataToUpload.length;
+                document.getElementById('csvUploadProgress').classList.remove('hidden');
+
+                for (const s of dataToUpload) {
+                    try {
+                        const docRef = doc(db, collectionPath(), s.nim);
+                        const snap = await getDoc(docRef);
+                        if (snap.exists()) {
+                            const existingData = snap.data();
+                            await updateDoc(docRef, mergeStudentData(existingData, s));
+                            updated++;
+                        } else {
+                            await setDoc(docRef, { ...s, relations: [] });
+                            added++;
+                        }
+                    } catch (err) {
+                        console.error(`Gagal menyimpan ${s.nim}:`, err);
+                    }
+                    processed++;
+                    const pct = Math.round((processed / total) * 100);
+                    document.getElementById('csvUploadProgressBar').style.width = pct + '%';
+                    document.getElementById('csvUploadProgressText').textContent = `${processed} / ${total} selesai (${pct}%)`;
+                }
+
+                showNotification('Sukses', `${added} data ditambahkan, ${updated} data diperbarui.`);
+                closeModal(csvPreviewModal);
+
+                confirmUploadButton.disabled = false;
+                confirmUploadButton.textContent = 'Konfirmasi & Unggah';
+                document.getElementById('csvUploadProgress').classList.add('hidden');
+            }
+
+            async function handleFileUpload() {
+                const files = Array.from(fileInput.files || []);
+                if (files.length === 0) return showNotification("Tidak Ada File", "Silakan pilih file CSV.", true);
+                uploadButton.disabled = true;
+                uploadButton.textContent = 'Memproses...';
+                try {
+                    let combinedStudents = [];
+                    detectedCsvHeadersPerFile = {};
+                    for (const file of files) {
+                        const text = await file.text();
+                        const result = await parseCSV(text);
+                        detectedCsvHeadersPerFile[file.name] = result.headerRow;
+                        combinedStudents = combinedStudents.concat(result.students);
+                    }
+                    showCSVPreview(combinedStudents, files.map(f => f.name).join(', '));
+                } catch (error) {
+                    showNotification("Error Parsing", `Terjadi kesalahan: ${error.message}`, true);
+                } finally {
+                    uploadButton.disabled = false;
+                    uploadButton.textContent = 'Proses & Simpan';
+                    fileInput.value = ''; // Reset file input
+                }
+            }
+
+            // --- FILTER, SORT, PAGINATION ---
+            function applyFiltersAndSort() {
+                const searchTerm = searchInput.value.toLowerCase();
+                const selectedRombel = rombelFilter.value;
+
+                let tempFiltered = allStudents;
+
+                if (searchTerm) {
+                    tempFiltered = tempFiltered.filter(s =>
+                        s.nim.toLowerCase().includes(searchTerm) ||
+                        (s.rombel && s.rombel.toLowerCase().includes(searchTerm)) ||
+                        s.nama.toLowerCase().includes(searchTerm)
+                    );
+                }
+                if (selectedRombel) {
+                    tempFiltered = tempFiltered.filter(s => s.rombel === selectedRombel);
+                }
+
+                filteredStudents = tempFiltered;
+
+                filteredStudents.sort((a, b) => {
+                    const valA = a[sortState.column] || '';
+                    const valB = b[sortState.column] || '';
+                    const comparison = valA.localeCompare(valB, undefined, { numeric: true });
+                    return sortState.direction === 'asc' ? comparison : -comparison;
+                });
+
+                const totalPages = Math.max(1, Math.ceil(filteredStudents.length / pageSize));
+                if (currentPage > totalPages) currentPage = 1;
+
+                const start = (currentPage - 1) * pageSize;
+                const end = start + pageSize;
+                displayedStudents = filteredStudents.slice(start, end);
+
+                renderTable();
+                updatePaginationControls(filteredStudents.length, totalPages);
+                updateTableSummary(displayedStudents.length, filteredStudents.length, allStudents.length);
+            }
+
+            function updatePaginationControls(totalItems, totalPages) {
+                const pageInfo = document.getElementById('pageInfo');
+                pageInfo.textContent = `Halaman ${currentPage} / ${totalPages}`;
+                const prev = document.getElementById('prevPageBtn');
+                const next = document.getElementById('nextPageBtn');
+                prev.disabled = currentPage <= 1;
+                next.disabled = currentPage >= totalPages;
+                prev.classList.toggle('opacity-50', prev.disabled);
+                next.classList.toggle('opacity-50', next.disabled);
+            }
+            function goToPage(delta = 0) {
+                currentPage = Math.max(1, currentPage + delta);
+                applyFiltersAndSort();
+            }
+
+            function handleSort(e) {
+                const newSortColumn = e.currentTarget.dataset.sort;
+                if (sortState.column === newSortColumn) {
+                    sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+                } else {
+                    sortState.column = newSortColumn;
+                    sortState.direction = 'asc';
+                }
+                document.querySelectorAll('.sort-icon').forEach(icon => icon.textContent = '↕️');
+                e.currentTarget.querySelector('.sort-icon').textContent = sortState.direction === 'asc' ? '↑' : '↓';
+                applyFiltersAndSort();
+            }
+
+            // --- BULK ACTIONS ---
+            function updateBulkActionToolbar() {
+                const count = selectedRows.size;
+                if (count > 0) {
+                    bulkActionsToolbar.classList.remove('hidden');
+                    selectionCount.textContent = `${count} baris dipilih.`;
+                } else {
+                    bulkActionsToolbar.classList.add('hidden');
+                }
+                selectAllCheckbox.checked = count > 0 && count === filteredStudents.length;
+            }
+
+            async function handleBulkDelete() {
+                const count = selectedRows.size;
+                if (count === 0 || !db) return;
+
+                deleteConfirmMessage.textContent = `Apakah Anda yakin ingin menghapus ${count} data mahasiswa yang dipilih? Tindakan ini tidak dapat diurungkan.`;
+                openModal(deleteConfirmModal);
+
+                confirmDeleteButton.onclick = async () => {
+                    confirmDeleteButton.disabled = true;
+                    confirmDeleteButton.textContent = 'Menghapus...';
+                    try {
+                        const batch = writeBatch(db);
+                        selectedRows.forEach(nim => {
+                            const docRef = doc(db, collectionPath(), nim);
+                            batch.delete(docRef);
+                        });
+                        await batch.commit();
+                        showNotification("Sukses", `${count} data berhasil dihapus.`);
+                        selectedRows.clear();
+                        updateBulkActionToolbar();
+                    } catch (error) {
+                        console.error("Error deleting bulk data:", error);
+                        showNotification("Error", "Gagal menghapus data.", true);
+                    } finally {
+                        confirmDeleteButton.disabled = false;
+                        confirmDeleteButton.textContent = 'Hapus';
+                        closeModal(deleteConfirmModal);
+                        confirmDeleteButton.onclick = performDelete; // Reset to single delete
+                    }
+                };
+            }
+
+            function handleBulkExport() {
+                if (selectedRows.size === 0) return;
+                const dataToExport = allStudents
+                    .filter(s => selectedRows.has(s.nim))
+                    .map(({nim, nama, rombel, phone, socialMedia, github, relations}) => ({
+                        NIM: nim, Nama: nama, Rombel: rombel, Telepon: phone, Sosmed: socialMedia, GitHub: github, Grup: (relations || []).join(', ')
+                    }));
+
+                const filename = `Data_Mahasiswa_Pilihan_${new Date().toISOString().split('T')[0]}.xlsx`;
+                const ws = XLSX.utils.json_to_sheet(dataToExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Data Pilihan");
+                XLSX.writeFile(wb, filename);
+            }
+
+            function handleExport() {
+                if (allStudents.length === 0) return showNotification("Tidak Ada Data", "Tidak ada data untuk diekspor.", true);
+                fileNameModal.querySelector('#fileNameInput').value = `Data_Mahasiswa_${new Date().toISOString().split('T')[0]}`;
+                openModal(fileNameModal);
+            }
+
+            function performExport() {
+                if (allStudents.length === 0) return;
+                let filename = fileNameModal.querySelector('#fileNameInput').value.trim() || 'Data_Mahasiswa';
+                if (!filename.toLowerCase().endsWith('.xlsx')) filename += '.xlsx';
+                const dataToExport = allStudents.map(({nim, nama, rombel, phone, socialMedia, github, relations}) => ({
+                    NIM: nim, Nama: nama, Rombel: rombel, Telepon: phone, Sosmed: socialMedia, GitHub: github, Grup: (relations || []).join(', ')
+                }));
+                const ws = XLSX.utils.json_to_sheet(dataToExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Data Mahasiswa");
+                XLSX.writeFile(wb, filename);
+                closeModal(fileNameModal);
+            }
+
+            function setupPreviewControls() {
+                document.getElementById('saveMappingButton').addEventListener('click', () => {
+                    if (document.getElementById('useAsDefaultCheckbox')?.checked) {
+                        const ok = saveDefaultMapping(currentMapping);
+                        document.getElementById('csvPreviewWarnings').innerHTML = ok ? '<div class="text-green-700 bg-green-50 p-2 rounded">Pemetaan disimpan sebagai default.</div>' : '<div class="text-red-700 bg-red-50 p-2 rounded">Gagal menyimpan pemetaan.</div>';
+                    }
+                });
+                document.getElementById('fixDuplicatesButton').addEventListener('click', () => {
+                    const strategy = document.getElementById('duplicateStrategySelect')?.value || 'keepLast';
+                    applyFixDuplicates(strategy);
+                });
+            }
+
+            // --- INITIALIZATION & EVENT LISTENERS ---
+            function main() {
+                // Main Actions
+                // Enable upload button when files are selected
+                fileInput.addEventListener('change', (e) => {
+                    const files = Array.from(fileInput.files || []);
+                    if (files.length) {
+                        selectedFileList.textContent = files.map(f => f.name).join(', ');
+                        uploadButton.disabled = false;
+                        uploadButton.classList.remove('opacity-60');
+                    } else {
+                        selectedFileList.textContent = '';
+                        uploadButton.disabled = true;
+                        uploadButton.classList.add('opacity-60');
+                    }
+                });
+
+                // Drag & drop support for CSV area
+                if (csvDropArea) {
+                    csvDropArea.addEventListener('click', () => fileInput.click());
+                    csvDropArea.addEventListener('dragover', (ev) => { ev.preventDefault(); csvDropArea.classList.add('border-blue-500'); });
+                    csvDropArea.addEventListener('dragleave', (ev) => { ev.preventDefault(); csvDropArea.classList.remove('border-blue-500'); });
+                    csvDropArea.addEventListener('drop', (ev) => {
+                        ev.preventDefault();
+                        csvDropArea.classList.remove('border-blue-500');
+                        const dropped = Array.from(ev.dataTransfer.files || []).filter(f => f.type.includes('csv') || f.name.toLowerCase().endsWith('.csv'));
+                        if (dropped.length) {
+                            // Use DataTransfer to assign files to the hidden input so existing flow works
+                            try {
+                                const dt = new DataTransfer();
+                                dropped.forEach(f => dt.items.add(f));
+                                fileInput.files = dt.files;
+                                fileInput.dispatchEvent(new Event('change'));
+                            } catch (e) {
+                                // Fallback: show names and keep files for manual processing
+                                selectedFileList.textContent = dropped.map(f => f.name).join(', ');
+                                uploadButton.disabled = false;
+                                uploadButton.classList.remove('opacity-60');
+                            }
+                        }
+                    });
+                }
+
+                uploadButton.addEventListener('click', handleFileUpload);
+                exportButton.addEventListener('click', handleExport);
+                addStudentButton.addEventListener('click', openAddModal);
+                downloadSampleCsvButton.addEventListener('click', downloadSampleCSV);
+
+                // Filtering & Sorting
+                searchInput.addEventListener('input', applyFiltersAndSort);
+                rombelFilter.addEventListener('change', applyFiltersAndSort);
+                document.querySelectorAll('.sortable').forEach(h => h.addEventListener('click', handleSort));
+
+                // Pagination
+                pageSizeSelect.addEventListener('change', (e) => {
+                    pageSize = parseInt(e.target.value, 10);
+                    currentPage = 1;
+                    applyFiltersAndSort();
+                });
+                prevPageBtn.addEventListener('click', () => goToPage(-1));
+                nextPageBtn.addEventListener('click', () => goToPage(1));
+
+                // Table Interactions
+                tableBody.addEventListener('click', (e) => {
+                    const target = e.target;
+                    const row = target.closest('tr');
+                    if (!row || !row.dataset.nim) return;
+
+                    const student = allStudents.find(s => s.nim === row.dataset.nim);
+                    if (!student) return;
+
+                    if (target.closest('.edit-btn')) {
+                        openEditModal(student);
+                    } else if (target.closest('.delete-btn')) {
+                        handleDeleteClick(student);
+                    } else if (target.closest('.rowCheckbox')) {
+                        // handled by its own listener
+                    } else {
+                        openDetailModal(student);
+                    }
+                });
+
+                // Bulk Selection
+                selectAllCheckbox.addEventListener('change', (e) => {
+                    if (e.target.checked) {
+                        filteredStudents.forEach(s => selectedRows.add(s.nim));
+                    } else {
+                        selectedRows.clear();
+                    }
+                    applyFiltersAndSort(); // Re-render to show checked status
+                    updateBulkActionToolbar();
+                });
+
+                tableBody.addEventListener('change', e => {
+                    if (e.target.classList.contains('rowCheckbox')) {
+                        const nim = e.target.dataset.nim;
+                        if (e.target.checked) {
+                            selectedRows.add(nim);
+                        } else {
+                            selectedRows.delete(nim);
+                        }
+                        updateBulkActionToolbar();
+                    }
+                });
+
+                exportSelectedButton.addEventListener('click', handleBulkExport);
+                deleteSelectedButton.addEventListener('click', handleBulkDelete);
+
+                // Views
+                tabDashboard.addEventListener('click', () => switchView('dashboard'));
+                tabRombel.addEventListener('click', () => switchView('rombel'));
+                tabGrup.addEventListener('click', () => switchView('grup'));
+                grupSearchInput.addEventListener('input', renderGroupList);
+
+                // Modals & Forms
+                cancelEditButton.addEventListener('click', () => closeModal(editModal));
+                editForm.addEventListener('submit', handleFormSubmit);
+                cancelDeleteButton.addEventListener('click', () => closeModal(deleteConfirmModal));
+                confirmDeleteButton.addEventListener('click', performDelete); // Default to single delete
+                closeDetailButton.addEventListener('click', () => closeModal(detailModal));
+                modalCloseButton.addEventListener('click', () => closeModal(notificationModal));
+                confirmDownloadButton.addEventListener('click', performExport);
+                cancelDownloadButton.addEventListener('click', () => closeModal(fileNameModal));
+
+                // CSV Preview
+                cancelPreviewButton.addEventListener('click', () => closeModal(csvPreviewModal));
+                confirmUploadButton.addEventListener('click', performConfirmedUpload);
+                setupPreviewControls();
+
+                // Firebase Settings
+                openSettingsButton.addEventListener('click', () => openModal(firebaseSettingsModal));
+                saveFirebaseButton.addEventListener('click', async () => {
+                    try {
+                        const cfg = JSON.parse(firebaseConfigInput.value || '{}');
+                        const id = firebaseAppIdInput.value.trim() || null;
+                        const token = firebaseAuthTokenInput.value.trim() || null;
+                        saveFirebaseConfigToStorage(cfg, id, token);
+                        firebaseSettingsMessage.textContent = 'Konfigurasi tersimpan. Memuat ulang...';
+                        setTimeout(() => window.location.reload(), 1000);
+                    } catch (e) {
+                        firebaseSettingsMessage.textContent = 'JSON tidak valid.';
+                    }
+                });
+                testFirebaseButton.addEventListener('click', async () => {
+                     try {
+                        const cfg = JSON.parse(firebaseConfigInput.value || '{}');
+                        firebaseSettingsMessage.textContent = 'Menguji koneksi...';
+                        const ok = await initFirebaseFromConfig(cfg, firebaseAppIdInput.value.trim() || null, firebaseAuthTokenInput.value.trim() || null);
+                        firebaseSettingsMessage.textContent = ok ? 'Test berhasil.' : 'Test gagal. Cek console.';
+                    } catch (e) {
+                        firebaseSettingsMessage.textContent = 'JSON tidak valid.';
+                    }
+                });
+                disconnectFirebaseButton.addEventListener('click', () => {
+                    clearSavedFirebaseConfig();
+                    firebaseSettingsMessage.textContent = 'Konfigurasi dihapus. Memuat ulang...';
+                    setTimeout(() => window.location.reload(), 1000);
+                });
+
+                // Firestore Listener: attach only when auth is ready
+                (function attachFirestoreListenerWhenReady(retries = 0) {
+                    if (auth && typeof onAuthStateChanged === 'function') {
+                        onAuthStateChanged(auth, (user) => {
+                            if (user && db) {
+                                try {
+                                    const studentsCollection = collection(db, collectionPath());
+                                    onSnapshot(query(studentsCollection), (snapshot) => {
+                                        allStudents = snapshot.docs.map(doc => ({ nim: doc.id, ...doc.data() }));
+                                        populateRombelFilter();
+                                        applyFiltersAndSort();
+                                        renderRombelView(allStudents);
+                                        prepareGrupView(allStudents);
+                                        renderGrupTable(grupSearchInput.value);
+                                    }, (error) => {
+                                        console.error("Error in onSnapshot listener:", error);
+                                        showNotification("Error Database", "Gagal mengambil data dari database: " + (error && error.message ? error.message : String(error)), true);
+                                    });
+                                } catch (e) {
+                                    console.error('Snapshot setup failed', e);
+                                    showNotification("Error", "Gagal memulai listener database.", true);
+                                }
+                            } else {
+                                console.log("Pengguna keluar atau database belum siap.");
+                                allStudents = [];
+                                applyFiltersAndSort();
+                            }
+                        });
+                    } else if (retries < 5) {
+                        // auth might still be initializing; retry shortly
+                        setTimeout(() => attachFirestoreListenerWhenReady(retries + 1), 300);
+                    } else {
+                        console.warn('Auth not available; Firestore listener not attached.');
+                    }
+                })();
+            }
+
+            main();
+        });
+    </script>
+</body>
+</html>

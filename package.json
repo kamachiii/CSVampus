@@ -1,0 +1,11 @@
+{
+  "name": "csv-parse-tests",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "papaparse": "^5.4.1"
+  },
+  "scripts": {
+    "test": "node tests/test_parse_csv.js"
+  }
+}
