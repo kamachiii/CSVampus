@@ -1,14 +1,56 @@
-# Aplikasi Mahasiswa - Local Setup
+# CSVampus — Import CSV & Kelola Data Mahasiswa
 
-Ringkasan:
-Halaman `index.html` adalah aplikasi single-file untuk mengelola data mahasiswa. Fitur penting:
-- Unggah CSV (multi-file), preview, mapping kolom, validasi, deduplikasi, dan ekspor ke XLSX.
-- Integrasi Firestore untuk menyimpan data mahasiswa (konfigurasi diperlukan).
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+
+CSVampus adalah aplikasi web ringan untuk mengimpor dan mengelola data mahasiswa dari file CSV. Unggah file CSV, pratinjau dan peta kolom (mis. `NIM`, `Nama Full Rombel`), atur strategi duplikat, lalu simpan langsung ke Firebase (Firestore). Aplikasi juga menyediakan tampilan per rombel, grup, dan opsi ekspor ke Excel.
+
+Ringkasan fitur utama:
+- Unggah CSV multi-file dan pratinjau data sebelum menyimpan.
+- Pemetaan kolom otomatis dengan alias yang umum (termasuk `nama_full_rombel`).
+- Penanganan duplikat (keep first / keep last / merge) dan perbaikan batch.
+- Integrasi Firebase (Firestore & Storage) untuk penyimpanan data dan foto.
+- Ekspor data ke XLSX dan fitur edit/hapus data.
 
 Quick start (testing lokal tanpa Firebase):
-1. Buka `index.html` langsung di browser (double-click) atau gunakan static server
-
+1. Buka `index.html` langsung di browser (double-click) atau jalankan static server.
 2. Klik "Contoh CSV" untuk mengunduh sample dan coba unggah untuk melihat preview.
+
+Instalasi & Pengembangan
+------------------------
+Untuk menjalankan pengujian parser CSV (Node):
+
+```bash
+cd '/home/kamachi/Documents/3 Bulan Liburan 2025/extractor/testing'
+npm install
+npm test
+```
+
+Untuk melihat aplikasi di browser saat pengembangan, gunakan static server sederhana (mis. serve atau http-server):
+
+```bash
+# jika belum terinstall, pasang http-server
+npm install -g http-server
+# jalankan dari root project
+http-server . -c-1
+# buka http://localhost:8080/index.html
+```
+
+Contoh CSV (contoh sederhana)
+----------------------------
+Gunakan contoh CSV ini untuk mencoba fitur preview dan mapping kolom:
+
+```csv
+No,Rombel,NIM,Nama Full Rombel,Status
+1,24TI05,110224161,ABDUL HAKIM,Isi KRS
+2,24TI04,110224132,ACHMAD RAIHAN,Isi KRS
+3,24TI06,110224092,ADIT HERMANSYAH,Isi KRS
+```
+
+Tips penggunaan
+---------------
+- Jika CSV Anda memiliki baris kosong atau baris header yang bersih dari nilai (mis. hanya koma), aplikasi akan mencoba mengabaikan baris awal tersebut.
+- Pastikan kolom NIM dan Nama (atau `Nama Full Rombel`) terdeteksi di pemetaan sebelum menekan "Konfirmasi & Unggah".
 
 Menambahkan konfigurasi Firebase (untuk upload ke Firestore):
 1. Buat proyek Firebase dan aktifkan Firestore serta Storage.
@@ -41,4 +83,4 @@ npm test
 Catatan implementasi penting:
 - Parser menggunakan PapaParse (CDN) untuk robust CSV parsing.
 - Sebelum upload, aplikasi menampilkan preview yang memungkinkan mapping kolom CSV ke field target.
-- Upload dilakukan dalam batch dan mencoba retry per dokumen; jika terjadi error fatal, aplikasi mencoba rollback perubahan yang dibuat selama upload.
+- Upload dilakukan dalam loop dan mencoba menangani error per dokumen; untuk batch besar pertimbangkan batching/parallelism dengan backoff.

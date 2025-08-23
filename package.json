@@ -1,6 +1,7 @@
 {
   "name": "csv-parse-tests",
   "version": "1.0.0",
+  "description": "CSVampus: Web app untuk mengimpor file CSV mahasiswa, memetakan kolom otomatis, dan menyimpan serta menampilkan data berdasarkan rombel atau grup.",
   "private": true,
   "dependencies": {
     "papaparse": "^5.4.1"
