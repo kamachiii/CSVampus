@@ -24,7 +24,16 @@
         .sort-icon { display: inline-block; margin-left: 8px; opacity: 0.5; transition: opacity 0.2s; }
         .sortable:hover .sort-icon { opacity: 1; }
         .tab { cursor: pointer; transition: all 0.2s ease-in-out; }
-        .tab-active { border-color: #2563eb; color: #2563eb; background-color: #dbeafe; }
+    /* Improve contrast for tabs */
+    .tab-active { border-color: #1e40af; color: #1e40af; background-color: #cfe6ff; }
+    /* Stronger tab colors by ID to satisfy contrast in some states */
+    #tabDashboard.tab-active, #tabRombel.tab-active, #tabGrup.tab-active { color: #1e40af; background-color: #cfe6ff; }
+    /* Make muted text darker to meet contrast requirements */
+    .text-gray-400 { color: #475569 !important; }
+    .text-gray-500 { color: #374151 !important; }
+    /* Darken export button for sufficient contrast against white text */
+    #exportButton { background-color: #116530 !important; }
+    #exportButton:hover { background-color: #0f5130 !important; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #a8a29e; border-radius: 10px; }
@@ -36,6 +45,17 @@
             border-radius: 50%;
             border: 2px solid #e5e7eb;
         }
+    /* Detail panel header and avatar polish */
+    #detailPanel .detail-profile-img { width: 84px; height:84px; border-radius: 9999px; border-width: 0; box-shadow: 0 6px 18px rgba(15,23,42,0.08); }
+    #detailPanel { background: linear-gradient(180deg, #ffffff 0%, #fbfdff 40%); }
+    /* pill/tag style */
+    .detail-pill { display:inline-flex; align-items:center; gap:0.5rem; padding:0.25rem 0.6rem; border-radius:9999px; background:#f1f5f9; color:#0f172a; font-weight:600; font-size:0.85rem; box-shadow:0 1px 2px rgba(2,6,23,0.04); }
+    /* focus visible for keyboard users */
+    :focus{ outline: none; }
+    :focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
+    /* higher contrast for buttons */
+    .bg-blue-600 { background-color: #0b63d6 !important; }
+    .text-gray-600 { color: #334155 !important; }
         .modal-open { overflow: hidden; }
         table thead th {
             position: sticky;
@@ -45,22 +65,62 @@
         }
         /* New: Clickable table rows */
         .clickable-row { cursor: pointer; }
+        /* Modal animation variables */
+        :root {
+            --modal-duration: 420ms;
+            --modal-easing: cubic-bezier(.2,.9,.3,1);
+            --backdrop-duration: 260ms;
+            --slide-duration: 420ms;
+            --slide-easing: cubic-bezier(.2,.9,.3,1);
+        }
+        /* Modal animations: fade + gentle bounce for center modals */
+        .modal-content { transform: translateY(-8px) scale(.98); opacity: 0; transition: opacity var(--modal-duration) ease; }
+        @keyframes modal-bounce {
+            0% { transform: translateY(-8px) scale(.98); }
+            60% { transform: translateY(0) scale(1.03); }
+            100% { transform: translateY(0) scale(1); }
+        }
+        .modal-content.show { opacity: 1; animation: modal-bounce var(--modal-duration) var(--modal-easing) both; }
+        /* Backdrop fade */
+        .fixed.inset-0 { transition: background-color var(--backdrop-duration) ease, opacity var(--backdrop-duration) ease; }
+        /* Slide-over detail panel with subtle overshoot bounce */
+        #detailPanel.slide-over { transform: translateX(100%); }
+        @keyframes slide-bounce {
+            0% { transform: translateX(100%); }
+            80% { transform: translateX(-6%); }
+            100% { transform: translateX(0); }
+        }
+        #detailPanel.slide-over.open { animation: slide-bounce var(--slide-duration) var(--slide-easing) both; }
+
+        /* Respect user's reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+            .modal-content, .fixed.inset-0, #detailPanel.slide-over { transition: none !important; }
+            .modal-content { transform: none !important; opacity: 1 !important; }
+            #detailPanel.slide-over { transform: none !important; }
+        }
     </style>
+    <!-- focus-trap (tiny lib) -->
+    <script src="https://cdn.jsdelivr.net/npm/focus-trap@6.9.0/dist/focus-trap.umd.min.js"></script>
+    <!-- axe-core for accessibility checks (dev only) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.6.3/axe.min.js"></script>
 </head>
 <body class="antialiased text-gray-800">
 
+    <!-- Skip link for keyboard users -->
+    <a href="#maincontent" class="sr-only focus:not-sr-only p-2">Skip to main content</a>
+
     <!-- Main Container -->
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+    <div id="maincontent" role="main" class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
         <!-- Header -->
         <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div>
                 <h1 class="text-3xl font-bold text-gray-800">CSVampus</h1>
-                <p class="text-gray-500 mt-1">Unggah CSV, rapikan data mahasiswa, dan kelola rombel dengan mudah.</p>
+                <p class="text-gray-600 mt-1">Unggah CSV, rapikan data mahasiswa, dan kelola rombel dengan mudah.</p>
             </div>
             <div class="flex items-center gap-2">
                 <span id="connectionStatus" class="text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-800">Connecting...</span>
-                <button id="openSettingsButton" class="p-2 border rounded-full text-sm hover:bg-gray-100 aspect-square">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311a1.464 1.464 0 0 1-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413-1.4-2.397 0-2.81l.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/></svg>
+                <button id="openSettingsButton" aria-label="Pengaturan Firebase" class="p-2 border rounded-full text-sm hover:bg-gray-100 aspect-square">
+                    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311a1.464 1.464 0 0 1-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413-1.4-2.397 0-2.81l.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872l-.1-.34zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/></svg>
                 </button>
             </div>
         </div>
@@ -69,10 +129,10 @@
         <div class="bg-white rounded-lg shadow-md p-4 mb-6">
             <h2 class="text-lg font-semibold mb-3">Unggah Data dari CSV</h2>
             <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                <div id="csvDropArea" class="flex-grow w-full p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                <div id="csvDropArea" role="button" tabindex="0" aria-label="Upload CSV" class="flex-grow w-full p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
                     <label for="csvFileInput" class="cursor-pointer">
                         <p class="text-gray-600">Seret & lepas file CSV di sini, atau klik untuk memilih file</p>
-                        <p class="text-xs text-gray-400 mt-1">Mendukung unggah banyak file sekaligus</p>
+                        <p class="text-xs text-gray-500 mt-1">Mendukung unggah banyak file sekaligus</p>
                     </label>
                     <input type="file" id="csvFileInput" class="hidden" accept=".csv" multiple>
                 </div>
@@ -89,10 +149,10 @@
 
         <!-- Tabs for different views -->
         <div class="mb-4 border-b border-gray-200">
-            <nav class="flex -mb-px space-x-6" aria-label="Tabs">
-                <button id="tabDashboard" class="tab py-3 px-1 border-b-2 font-medium text-sm tab-active">Dashboard Utama</button>
-                <button id="tabRombel" class="tab py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700">Tampilan Rombel</button>
-                <button id="tabGrup" class="tab py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700">Tampilan Grup</button>
+            <nav role="tablist" class="flex -mb-px space-x-6" aria-label="Tabs">
+                <button id="tabDashboard" role="tab" aria-selected="true" class="tab py-3 px-1 border-b-2 font-medium text-sm tab-active">Dashboard Utama</button>
+                <button id="tabRombel" role="tab" aria-selected="false" class="tab py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700">Tampilan Rombel</button>
+                <button id="tabGrup" role="tab" aria-selected="false" class="tab py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-gray-700">Tampilan Grup</button>
             </nav>
         </div>
 
@@ -102,9 +162,11 @@
                  <!-- Filters & Controls -->
                 <div class="flex flex-wrap items-center gap-3 mb-4">
                     <div class="flex-grow">
+                        <label for="searchInput" class="sr-only">Cari mahasiswa</label>
                         <input id="searchInput" type="search" placeholder="Cari berdasarkan NIM, Nama, atau Rombel..." class="p-2 border rounded-lg w-full sm:w-72" />
                     </div>
-                     <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2">
+                        <label for="rombelFilter" class="sr-only">Filter Rombel</label>
                         <select id="rombelFilter" class="p-2 border rounded-lg text-sm">
                             <option value="">Semua Rombel</option>
                         </select>
@@ -135,7 +197,7 @@
                         <table class="min-w-full divide-y divide-gray-200">
                            <thead class="bg-gray-50">
                                <tr>
-                                   <th class="px-4 py-2"><input id="selectAllCheckbox" type="checkbox" /></th>
+                                   <th class="px-4 py-2"><span class="sr-only">Pilih</span><label for="selectAllCheckbox" class="sr-only">Pilih semua baris</label><input id="selectAllCheckbox" type="checkbox" aria-label="Pilih semua baris" /></th>
                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="nim">NIM <span class="sort-icon">↕️</span></th>
                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="rombel">Rombel <span class="sort-icon">↕️</span></th>
                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sortable" data-sort="nama">Nama <span class="sort-icon">↕️</span></th>
@@ -151,7 +213,7 @@
                     <div class="flex items-center justify-between mt-3">
                         <div id="tableSummary" class="text-sm text-gray-600"></div>
                         <div class="flex items-center gap-3">
-                            <label class="text-sm text-gray-600">Baris</label>
+                            <label for="pageSizeSelect" class="text-sm text-gray-600">Baris</label>
                             <select id="pageSizeSelect" class="p-1 border rounded-lg text-sm">
                                 <option value="10">10</option>
                                 <option value="25" selected>25</option>
@@ -193,17 +255,27 @@
     </div>
 
     <!-- Modals -->
-    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full">
-            <div class="p-6">
-                <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                    <img id="detailPhoto" src="https://placehold.co/100x100/e2e8f0/64748b?text=Foto" alt="Foto Profil" class="detail-profile-img flex-shrink-0">
-                    <div class="text-center sm:text-left">
-                        <h3 id="detailName" class="text-2xl font-bold text-gray-800">Nama Mahasiswa</h3>
-                        <p id="detailNimRombel" class="text-gray-600">NIM - Rombel</p>
+    <!-- Slide-over detail panel (right side) -->
+    <div id="detailModal" role="dialog" aria-modal="true" aria-labelledby="detailName" aria-describedby="detailNimRombel" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black bg-opacity-40" id="detailModalOverlay"></div>
+            <aside id="detailPanel" class="absolute right-0 top-0 h-full w-full sm:w-96 bg-white shadow-xl overflow-y-auto transform translate-x-full transition-transform duration-300 ease-out">
+            <div class="p-4 border-b">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <img id="detailPhoto" src="https://placehold.co/100x100/e2e8f0/64748b?text=Foto" alt="Foto Profil" class="detail-profile-img flex-shrink-0">
+                        <div>
+                            <h3 id="detailName" class="text-lg font-bold text-gray-800">Nama Mahasiswa</h3>
+                            <p id="detailNimRombel" class="text-sm text-gray-600">NIM - Rombel</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="copyNimButton" class="px-3 py-1 text-sm bg-white/80 backdrop-blur-sm border border-white/30 rounded shadow-sm hover:bg-white">Salin NIM</button>
+                        <!-- inline edit removed -->
                     </div>
                 </div>
-                <div class="mt-6 border-t pt-4 space-y-3">
+            </div>
+            <div class="p-4">
+                <div class="mt-2 border-t pt-4 space-y-3">
                     <div class="flex">
                         <span class="w-1/3 text-gray-500 font-medium">No. Telepon</span>
                         <span id="detailPhone" class="w-2/3 text-gray-800"></span>
@@ -218,28 +290,49 @@
                     </div>
                 </div>
                 <div class="mt-6 border-t pt-4">
-                    <h4 class="text-lg font-semibold text-gray-700 mb-2">Relasi (Satu Rombel)</h4>
-                    <div id="detailRelations" class="max-h-40 overflow-y-auto space-y-2 pr-2"></div>
+                    <button class="w-full text-left flex items-center justify-between py-2" aria-expanded="true" data-target="detailRelationsContent" aria-controls="detailRelationsContent">
+                        <span class="text-lg font-semibold text-gray-700">Relasi (Satu Rombel)</span>
+                        <span class="text-sm text-gray-500">▼</span>
+                    </button>
+                    <div id="detailRelationsContent" class="max-h-44 overflow-y-auto space-y-2 pr-2">
+                        <div id="detailRelations"></div>
+                    </div>
                 </div>
                 <div class="mt-4 border-t pt-4">
-                    <h4 class="text-lg font-semibold text-gray-700 mb-2">Grup & Organisasi Lain</h4>
-                    <div id="detailCustomRelations" class="max-h-40 overflow-y-auto space-y-2 pr-2"></div>
+                    <button class="w-full text-left flex items-center justify-between py-2" aria-expanded="true" data-target="detailCustomRelationsContent" aria-controls="detailCustomRelationsContent">
+                        <span class="text-lg font-semibold text-gray-700">Grup & Organisasi Lain</span>
+                        <span class="text-sm text-gray-500">▼</span>
+                    </button>
+                    <div id="detailCustomRelationsContent" class="max-h-44 overflow-y-auto space-y-2 pr-2">
+                        <div id="detailCustomRelations"></div>
+                    </div>
                 </div>
             </div>
-            <div class="bg-gray-50 px-6 py-3 text-right rounded-b-lg">
+            <div class="bg-gray-50 px-6 py-3 text-right">
                 <button id="closeDetailButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Tutup</button>
             </div>
-        </div>
+    </aside>
     </div>
-    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-full overflow-y-auto">
-            <form id="editForm" class="p-6 space-y-4">
-                <h3 id="editModalTitle" class="text-2xl font-bold text-gray-800">Edit Profil Mahasiswa</h3>
-                <div class="text-center">
-                    <img id="photoPreview" src="https://placehold.co/100x100/e2e8f0/64748b?text=Foto" alt="Foto Profil" class="profile-img-preview mx-auto mb-2">
-                    <label for="photoInput" class="cursor-pointer text-sm text-blue-600 hover:underline">Ubah Foto</label>
-                    <input type="file" id="photoInput" class="hidden" accept="image/*">
+
+    <!-- Toast container -->
+    <div id="toastContainer" aria-live="polite" aria-atomic="true" style="z-index:99999" class="fixed bottom-6 right-6 flex flex-col gap-2"></div>
+    <div id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle" aria-describedby="editModalSubtitle" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-full overflow-y-auto modal-content">
+            <form id="editForm" class="">
+                <div class="p-4 border-b">
+                    <div class="flex items-center gap-4">
+                        <img id="photoPreview" src="https://placehold.co/100x100/e2e8f0/64748b?text=Foto" alt="Foto Profil" class="profile-img-preview detail-profile-img">
+                        <div>
+                            <h3 id="editModalTitle" class="text-lg font-bold text-gray-800">Edit Profil Mahasiswa</h3>
+                            <p class="text-sm text-gray-500" id="editModalSubtitle">Perbarui data mahasiswa secara cepat.</p>
+                        </div>
+                        <div class="ml-auto text-right">
+                            <label for="photoInput" class="cursor-pointer inline-block text-sm bg-white/80 backdrop-blur-sm border border-white/30 rounded px-2 py-1">Ubah Foto</label>
+                            <input type="file" id="photoInput" class="hidden" accept="image/*">
+                        </div>
+                    </div>
                 </div>
+                <div class="p-6 space-y-4">
                 <div>
                     <label for="editNIM" class="block text-sm font-medium text-gray-700">NIM</label>
                     <input type="text" id="editNIM" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" required>
@@ -272,32 +365,24 @@
                         <button type="button" id="addRelationButton" class="flex-shrink-0 bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">Tambah</button>
                     </div>
                 </div>
-                <div class="flex justify-end space-x-4 pt-4">
+                <div class="flex justify-end space-x-4 pt-4 p-4">
                     <button type="button" id="cancelEditButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Batal</button>
                     <button type="submit" id="saveEditButton" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Simpan Perubahan</button>
                 </div>
             </form>
         </div>
     </div>
-    <div id="deleteConfirmModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full text-center">
-            <h3 class="text-xl font-bold mb-4 text-red-600">Konfirmasi Hapus</h3>
-            <p id="deleteConfirmMessage" class="text-gray-600 mb-6"></p>
-            <div class="flex justify-center space-x-4">
-                <button id="cancelDeleteButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Batal</button>
-                <button id="confirmDeleteButton" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700">Hapus</button>
-            </div>
-        </div>
     </div>
+    <!-- deleteConfirmModal moved to end of body to avoid accidental nesting inside other modals -->
     <div id="notificationModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full text-center">
+        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full text-center modal-content">
             <h3 id="modalTitle" class="text-xl font-bold mb-4"></h3>
             <p id="modalMessage" class="text-gray-600 mb-6"></p>
             <button id="modalCloseButton" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700">Tutup</button>
         </div>
     </div>
     <div id="fileNameModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full">
+        <div class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full modal-content">
             <h3 class="text-xl font-bold mb-4">Masukkan Nama File</h3>
             <p class="text-gray-600 mb-4 text-sm">Masukkan nama untuk file Excel Anda (tanpa ekstensi .xlsx).</p>
             <input type="text" id="fileNameInput" class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6" placeholder="Contoh: Data_Mahasiswa_TI">
@@ -310,7 +395,7 @@
 
     <!-- Firebase Settings Modal -->
     <div id="firebaseSettingsModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg p-6 shadow-xl max-w-2xl w-full">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-2xl w-full modal-content">
             <h3 class="text-xl font-bold mb-3">Pengaturan Firebase</h3>
             <p class="text-sm text-gray-600 mb-4">Isi konfigurasi Firebase (objek config) dan token autentikasi jika perlu. Data disimpan di localStorage untuk percobaan lokal.</p>
             <label class="text-xs text-gray-600">Firebase Config (JSON)</label>
@@ -333,7 +418,7 @@
 
     <!-- CSV Preview Modal -->
     <div id="csvPreviewModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
-        <div class="bg-white rounded-lg p-6 shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col modal-content">
             <h3 class="text-xl font-bold mb-3">Pratinjau CSV Sebelum Unggah</h3>
             <p id="csvPreviewSummary" class="text-sm text-gray-600 mb-2"></p>
 
@@ -354,7 +439,7 @@
                 <div class="w-full md:w-48">
                     <label class="text-sm font-medium text-gray-700">Opsi Unggah</label>
                     <div class="mt-2">
-                         <label class="text-xs text-gray-600">Jika ada duplikat NIM</label>
+                         <label for="duplicateStrategySelect" class="text-xs text-gray-600">Jika ada duplikat NIM</label>
                          <select id="duplicateStrategySelect" class="w-full mt-1 p-2 border rounded text-sm">
                              <option value="keepLast">Ambil data terakhir (default)</option>
                              <option value="keepFirst">Ambil data pertama</option>
@@ -376,6 +461,18 @@
             <div class="flex justify-end gap-3 border-t pt-4">
                 <button id="cancelPreviewButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-400">Batal</button>
                 <button id="confirmUploadButton" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700">Konfirmasi & Unggah</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal (top-level sibling) -->
+    <div id="deleteConfirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmDeleteButton" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div id="deleteConfirmContent" class="bg-white rounded-lg p-8 shadow-xl max-w-sm w-full text-center modal-content">
+            <h3 class="text-xl font-bold mb-4 text-red-600">Konfirmasi Hapus</h3>
+            <p id="deleteConfirmMessage" class="text-gray-600 mb-6"></p>
+            <div class="flex justify-center space-x-4">
+                <button id="cancelDeleteButton" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400">Batal</button>
+                <button id="confirmDeleteButton" class="bg-red-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700">Hapus</button>
             </div>
         </div>
     </div>
@@ -448,7 +545,7 @@
             const deleteConfirmModal = document.getElementById('deleteConfirmModal');
             const deleteConfirmMessage = document.getElementById('deleteConfirmMessage');
             const cancelDeleteButton = document.getElementById('cancelDeleteButton');
-            const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+            let confirmDeleteButton = document.getElementById('confirmDeleteButton');
             const detailModal = document.getElementById('detailModal');
             const closeDetailButton = document.getElementById('closeDetailButton');
             const relationsList = document.getElementById('relationsList');
@@ -478,6 +575,10 @@
             let uniqueGroups = [];
             let currentEditMode = 'add';
             const selectedRows = new Set();
+            let lastFocusedTrigger = null; // element that opened detail panel
+            let currentDetailStudent = null;
+            let isDeleteModalOpen = false;
+            let lastDeleteSourceButton = null;
 
             // --- Firebase Functions ---
             function updateConnectionStatus(connected, text) {
@@ -550,18 +651,97 @@
                 }
             })();
 
+            // (Debug helpers removed in cleanup)
+            // debug helpers removed
+
             // --- MODAL & NOTIFICATION ---
             function openModal(modalElement) {
+                // Hide other modals to prevent unintended stacking
+                try {
+                    document.querySelectorAll('.fixed.inset-0:not(.hidden)').forEach(m => {
+                        if (m !== modalElement) {
+                            // if we're hiding the delete confirm modal as part of opening another, clear its open flag
+                            if (m === deleteConfirmModal) isDeleteModalOpen = false;
+                            m.classList.add('hidden');
+                        }
+                    });
+                } catch (e) { console.error('openModal z-index/focus handling error', e); }
+                // openModal called
                 modalElement.classList.remove('hidden');
+                // animate inner content if present
+                try {
+                    const inner = modalElement.querySelector('.modal-content');
+                    if (inner) {
+                        const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                        if (prefersReduced) inner.classList.add('show');
+                        else requestAnimationFrame(() => inner.classList.add('show'));
+                    }
+                } catch (e) { console.error('anim open error', e); }
+                // Ensure deleteConfirmModal is visually on top and displayed as flex (it expects flex centering)
+                try {
+                    if (modalElement === deleteConfirmModal) {
+                        isDeleteModalOpen = true;
+                        // use a conservative z-index so it sits above page elements but not overly aggressive
+                        modalElement.style.zIndex = '99999';
+                        modalElement.style.display = 'flex';
+                        // focus confirm button for accessibility
+                        try { confirmDeleteButton && confirmDeleteButton.focus && confirmDeleteButton.focus(); } catch (e) {}
+                    } else {
+                        // ensure other modals don't get accidentally hidden behind small elements like toasts
+                        modalElement.style.zIndex = modalElement.style.zIndex || '';
+                    }
+                } catch (e) { console.error('closeModal error', e); }
                 document.body.classList.add('modal-open');
+                // if opening the detail slide-over, toggle its slide class
+                try {
+                    if (modalElement === detailModal) {
+                        const panel = document.getElementById('detailPanel');
+                        if (panel) panel.classList.add('open');
+                    }
+                } catch (e) { /* ignore */ }
             }
 
             function closeModal(modalElement) {
-                modalElement.classList.add('hidden');
-                const isAnyModalOpen = document.querySelector('.fixed.inset-0:not(.hidden)');
-                if (!isAnyModalOpen) {
-                    document.body.classList.remove('modal-open');
+                // animate out inner content first
+                try {
+                    const inner = modalElement.querySelector('.modal-content');
+                    if (inner) inner.classList.remove('show');
+                } catch (e) { /* ignore */ }
+                // determine durations from CSS variables (fallback to 260/280ms)
+                const cs = getComputedStyle(document.documentElement);
+                const md = cs.getPropertyValue('--modal-duration').trim() || '260ms';
+                const bd = cs.getPropertyValue('--backdrop-duration').trim() || '280ms';
+                const toMs = (s) => { try { return Number(s.replace('ms','').trim()); } catch(e){ return null; } };
+                const modalMs = toMs(md) || 260;
+                const backdropMs = toMs(bd) || 280;
+                // respect reduced motion preference: if user prefers reduced motion, hide immediately
+                const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                if (prefersReduced) {
+                    try { modalElement.classList.add('hidden'); } catch(e) {}
+                    try { document.body.classList.remove('modal-open'); } catch(e) {}
+                } else {
+                    // wait for animation to finish before hiding to avoid abrupt disappearance
+                    setTimeout(() => {
+                        try { modalElement.classList.add('hidden'); } catch (e) {}
+                    }, modalMs + 20);
+                    const isAnyModalOpen = document.querySelector('.fixed.inset-0:not(.hidden)');
+                    if (!isAnyModalOpen) {
+                        // delay removal to allow animations to complete
+                        setTimeout(() => document.body.classList.remove('modal-open'), backdropMs + 20);
+                    }
                 }
+                    if (modalElement === deleteConfirmModal) {
+                    isDeleteModalOpen = false;
+                    // cleanup any forced inline styles
+                    try { modalElement.style.display = ''; modalElement.style.zIndex = ''; } catch(e) {}
+                }
+                // re-enable the source delete button if we disabled it earlier
+                if (modalElement === deleteConfirmModal && lastDeleteSourceButton) {
+                    try { lastDeleteSourceButton.disabled = false; lastDeleteSourceButton.removeAttribute('data-disabled-for-delete'); } catch(e) {}
+                    lastDeleteSourceButton = null;
+                }
+                // if closing the detail slide-over, remove open class
+                try { if (modalElement === detailModal) { const panel = document.getElementById('detailPanel'); if (panel) panel.classList.remove('open'); } } catch (e) {}
             }
 
             function showNotification(title, message, isError = false) {
@@ -574,6 +754,69 @@
                 openModal(notificationModal);
             }
 
+            // Small non-blocking toast messages with optional action button
+            function showToast(type, message, timeout = 3000, actionLabel, actionCallback) {
+                const container = document.getElementById('toastContainer');
+                if (!container) return null;
+                const toast = document.createElement('div');
+                const base = 'px-4 py-2 rounded shadow text-sm flex items-center gap-2';
+                if (type === 'success') toast.className = base + ' bg-green-50 text-green-800 border border-green-100';
+                else if (type === 'error') toast.className = base + ' bg-red-50 text-red-800 border border-red-100';
+                else toast.className = base + ' bg-gray-50 text-gray-800 border border-gray-100';
+
+                const msg = document.createElement('div');
+                msg.className = 'flex-1';
+                msg.textContent = message;
+                toast.appendChild(msg);
+
+                let actionBtn = null;
+                if (actionLabel && typeof actionCallback === 'function') {
+                    actionBtn = document.createElement('button');
+                    actionBtn.className = 'ml-2 text-sm text-blue-600 font-semibold hover:underline';
+                    actionBtn.textContent = actionLabel;
+                    actionBtn.type = 'button';
+                    actionBtn.onclick = () => {
+                        try { actionCallback(); } catch (e) { console.error(e); }
+                        toast.remove();
+                    };
+                    toast.appendChild(actionBtn);
+                }
+
+                container.appendChild(toast);
+                const removeFn = () => {
+                    toast.classList.add('opacity-0');
+                    setTimeout(() => toast.remove(), 300);
+                };
+                const timer = setTimeout(removeFn, timeout);
+                // return a handle to cancel/clear
+                return { toast, clear: () => { clearTimeout(timer); removeFn(); }, actionBtn };
+            }
+
+            // Remove a relation tag with undo option
+            function removeTagWithUndo(tag) {
+                const parent = tag.parentElement;
+                if (!parent) { tag.remove(); return; }
+                const index = Array.from(parent.children).indexOf(tag);
+                const text = tag.firstChild ? tag.firstChild.textContent : null;
+                tag.remove();
+                if (!text) return;
+                const handle = showToast('info', `Grup "${text}" dihapus`, 5000, 'Undo', () => {
+                    // recreate tag
+                    const newTag = document.createElement('span');
+                    newTag.className = 'bg-blue-100 text-blue-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded flex items-center';
+                    const tn = document.createTextNode(text);
+                    newTag.appendChild(tn);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'ml-2 text-blue-800 hover:text-blue-900 font-bold';
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.onclick = () => removeTagWithUndo(newTag);
+                    newTag.appendChild(removeBtn);
+                    if (index >= parent.children.length) parent.appendChild(newTag);
+                    else parent.insertBefore(newTag, parent.children[index]);
+                });
+            }
+
             // --- TABLE & DATA RENDERING ---
             function renderTable() {
                 tableBody.innerHTML = '';
@@ -581,7 +824,7 @@
                     tableBody.innerHTML = `
                         <tr>
                             <td colspan="5" class="text-center py-12 px-6">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
+                                <svg class="mx-auto h-12 w-12 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>
                                 <h3 class="mt-2 text-sm font-medium text-gray-900">Belum ada data</h3>
                                 <p class="mt-1 text-sm text-gray-500">Mulai dengan mengunggah file CSV.</p>
                             </td>
@@ -599,13 +842,14 @@
                     tr.dataset.nim = s.nim;
                     const isChecked = selectedRows.has(s.nim);
                     tr.innerHTML = `
-                        <td class="px-4 py-2"><input class="rowCheckbox" data-nim="${s.nim}" type="checkbox" ${isChecked ? 'checked' : ''} /></td>
+                        <td class="px-4 py-2"><label class="sr-only" for="chk-${s.nim}">Pilih baris ${s.nim}</label><input id="chk-${s.nim}" class="rowCheckbox" data-nim="${s.nim}" type="checkbox" ${isChecked ? 'checked' : ''} aria-label="Pilih baris ${s.nim}" /></td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${s.nim}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.rombel || ''}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${s.nama}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
-                            <button class="edit-btn text-blue-600 hover:text-blue-800 mr-3" data-nim="${s.nim}">Edit</button>
-                            <button class="delete-btn text-red-600 hover:text-red-800" data-nim="${s.nim}">Hapus</button>
+                            <button class="detail-btn text-gray-700 hover:text-gray-900 mr-3" data-nim="${s.nim}" aria-label="Detail ${s.nim}">Detail</button>
+                            <button class="edit-btn text-blue-600 hover:text-blue-800 mr-3" data-nim="${s.nim}" aria-label="Edit ${s.nim}">Edit</button>
+                            <button class="delete-btn text-red-600 hover:text-red-800" data-nim="${s.nim}" aria-label="Hapus ${s.nim}">Hapus</button>
                         </td>
                     `;
                     tableBody.appendChild(tr);
@@ -769,8 +1013,168 @@
                     customRelationsContainer.innerHTML = '<p class="text-sm text-gray-500">Tidak tergabung dalam grup lain.</p>';
                 }
 
-                openModal(detailModal);
+                // use slide-over panel
+                showDetailPanel(student);
             }
+
+            function showDetailPanel(student) {
+                if (!student) return;
+                document.getElementById('detailPhoto').src = student.photoURL || 'https://placehold.co/100x100/e2e8f0/64748b?text=Foto';
+                document.getElementById('detailName').textContent = student.nama || 'N/A';
+                document.getElementById('detailNimRombel').textContent = `${student.nim} - ${student.rombel || 'N/A'}`;
+                document.getElementById('detailPhone').textContent = student.phone || '-';
+                document.getElementById('detailSocial').textContent = student.socialMedia || '-';
+                const githubLink = document.getElementById('detailGithub');
+                if (student.github) { githubLink.href = `https://github.com/${student.github}`; githubLink.textContent = `github.com/${student.github}`; }
+                else { githubLink.href = '#'; githubLink.textContent = '-'; }
+
+                const relationsContainer = document.getElementById('detailRelations');
+                relationsContainer.innerHTML = '';
+                if (student.rombel) {
+                    const relatedStudents = allStudents.filter(s => s.rombel === student.rombel && s.nim !== student.nim);
+                    if (relatedStudents.length > 0) {
+                        relatedStudents.sort((a,b) => a.nama.localeCompare(b.nama)).forEach(r => {
+                            const tag = document.createElement('div');
+                            tag.className = 'flex items-center gap-3 p-2 bg-white shadow-sm rounded-md';
+                            const avatar = document.createElement('div');
+                            avatar.className = 'w-9 h-9 rounded-full bg-blue-50 text-blue-700 flex items-center justify-center font-semibold';
+                            const initials = (r.nama || '').split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();
+                            avatar.textContent = initials || '–';
+                            const info = document.createElement('div');
+                            info.innerHTML = `<div class="text-sm font-medium text-gray-800">${r.nama}</div><div class="text-xs text-gray-500">${r.nim}</div>`;
+                            tag.appendChild(avatar);
+                            tag.appendChild(info);
+                            relationsContainer.appendChild(tag);
+                        });
+                    } else relationsContainer.innerHTML = '<p class="text-sm text-gray-500">Tidak ada mahasiswa lain di rombel ini.</p>';
+                } else relationsContainer.innerHTML = '<p class="text-sm text-gray-500">Mahasiswa ini tidak memiliki data rombel.</p>';
+
+                const customRelationsContainer = document.getElementById('detailCustomRelations');
+                customRelationsContainer.innerHTML = '';
+                if (student.relations && student.relations.length > 0) {
+                    student.relations.forEach(group => {
+                        const pill = document.createElement('span');
+                        pill.className = 'inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-800 text-sm font-medium shadow-sm';
+                        pill.textContent = group;
+                        customRelationsContainer.appendChild(pill);
+                    });
+                } else {
+                    customRelationsContainer.innerHTML = '<p class="text-sm text-gray-500">Tidak tergabung dalam grup lain.</p>';
+                }
+
+                const modal = document.getElementById('detailModal');
+                const panel = document.getElementById('detailPanel');
+                // Use centralized openModal so other modals are hidden and state flags remain consistent
+                openModal(modal);
+                // trigger slide-in
+                requestAnimationFrame(() => panel.classList.remove('translate-x-full'));
+                // accessibility: activate focus-trap on panel
+                currentDetailStudent = student;
+                try {
+                    if (window.focusTrapInstance && window.focusTrapInstance.deactivate) window.focusTrapInstance.deactivate();
+                    window.focusTrapInstance = window.focusTrap(panel, {
+                        escapeDeactivates: true,
+                        clickOutsideDeactivates: true,
+                        onDeactivate: () => { try { hideDetailPanel(); } catch(e) {} }
+                    });
+                    window.focusTrapInstance.activate();
+                } catch (e) {
+                    // fallback noop
+                }
+                // remember last trigger to return focus when closing
+                if (!lastFocusedTrigger) lastFocusedTrigger = document.activeElement;
+                document.body.classList.add('modal-open');
+            }
+
+            function hideDetailPanel() {
+                const modal = document.getElementById('detailModal');
+                const panel = document.getElementById('detailPanel');
+                panel.classList.add('translate-x-full');
+                setTimeout(() => {
+                    // Use centralized close to manage flags
+                    closeModal(modal);
+                    // deactivate focus trap
+                    try { if (window.focusTrapInstance && window.focusTrapInstance.deactivate) window.focusTrapInstance.deactivate(); } catch(e) {}
+                    // return focus to the element that opened the panel
+                    if (lastFocusedTrigger && typeof lastFocusedTrigger.focus === 'function') {
+                        lastFocusedTrigger.focus();
+                    }
+                    lastFocusedTrigger = null;
+                    currentDetailStudent = null;
+                }, 300);
+            }
+
+            // overlay click still closes
+            document.getElementById('detailModalOverlay').addEventListener('click', () => hideDetailPanel());
+
+            // Generic overlay click-to-close for other modals and Escape key handling
+            try {
+                document.querySelectorAll('.fixed.inset-0').forEach(modalEl => {
+                    // clicking the backdrop (the modal container itself) closes the modal
+                    modalEl.addEventListener('click', (ev) => {
+                        if (ev.target === modalEl) {
+                            closeModal(modalEl);
+                        }
+                    });
+                });
+            } catch (e) {}
+
+            // Close topmost open modal when pressing Escape
+            document.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Escape' || ev.key === 'Esc') {
+                    const openModals = Array.from(document.querySelectorAll('.fixed.inset-0:not(.hidden)'));
+                    if (openModals.length > 0) {
+                        const topmost = openModals[openModals.length - 1];
+                        closeModal(topmost);
+                    }
+                }
+            });
+
+            // Copy NIM button
+            const copyNimButton = document.getElementById('copyNimButton');
+            copyNimButton.addEventListener('click', async () => {
+                if (!currentDetailStudent) return showToast('info', 'Tidak ada NIM untuk disalin.');
+                try {
+                    await navigator.clipboard.writeText(currentDetailStudent.nim || '');
+                    showToast('success', 'NIM disalin ke clipboard.');
+                } catch (err) {
+                    showToast('error', 'Gagal menyalin.');
+                }
+            });
+
+            // Accessibility audit helper (dev): run axe-core and print results
+            async function runAxe() {
+                if (typeof axe === 'undefined') { console.warn('axe not loaded'); return; }
+                try {
+                    const results = await axe.run(document.body);
+                    console.group('Axe accessibility results');
+                    console.log(results); // developers can inspect
+                    console.groupEnd();
+                    if (results.violations && results.violations.length) {
+                        showToast('error', `A11y issues: ${results.violations.length} ditemukan. Lihat console.` , 7000);
+                    } else {
+                        showToast('success', 'A11y quick check: tidak ada pelanggaran utama terdeteksi', 3000);
+                    }
+                } catch (e) { console.error('Axe run failed', e); }
+            }
+            // Expose helper to the global window for easy invocation from the browser console
+            try { window.runAxe = runAxe; } catch (e) { /* noop if window not writable */ }
+            // editFromDetailButton removed (detail panel is now read-only friendly)
+
+            // Accordion toggles for relation sections
+            document.querySelectorAll('#detailPanel button[data-target]').forEach(btn => {
+                const targetId = btn.getAttribute('data-target');
+                const content = document.getElementById(targetId);
+                btn.addEventListener('click', () => {
+                    const expanded = btn.getAttribute('aria-expanded') === 'true';
+                    btn.setAttribute('aria-expanded', !expanded);
+                    if (content) content.style.display = expanded ? 'none' : 'block';
+                    const chevron = btn.querySelector('span:last-child');
+                    if (chevron) chevron.textContent = expanded ? '▶' : '▼';
+                });
+            });
+
+            // focus-trap handled by focus-trap library
 
             function renderRelationsEditor(relations = []) {
                 relationsList.innerHTML = '';
@@ -782,7 +1186,7 @@
                     removeBtn.type = 'button';
                     removeBtn.className = 'ml-2 text-blue-800 hover:text-blue-900 font-bold';
                     removeBtn.innerHTML = '&times;';
-                    removeBtn.onclick = () => tag.remove();
+                    removeBtn.onclick = () => removeTagWithUndo(tag);
                     tag.appendChild(removeBtn);
                     relationsList.appendChild(tag);
                 });
@@ -874,9 +1278,73 @@
                 }
             }
 
-            function handleDeleteClick(student) {
+            function handleDeleteClick(student, sourceButton = null) {
+                showDeleteConfirm({ student, bulk: false, count: 0, sourceButton });
+            }
+
+            // Centralized helper to show delete confirmation safely
+            function showDeleteConfirm({ student = null, bulk = false, count = 0, sourceButton = null } = {}) {
+                // replace confirm button with a fresh clone to ensure no leftover listeners
+                function replaceWithFresh(node) {
+                    try {
+                        const fresh = node.cloneNode(true);
+                        node.parentNode.replaceChild(fresh, node);
+                        return fresh;
+                    } catch (e) { return node; }
+                }
+                confirmDeleteButton = replaceWithFresh(confirmDeleteButton);
+
+                if (isDeleteModalOpen) return;
+                isDeleteModalOpen = true;
                 studentToDelete = student;
-                deleteConfirmMessage.textContent = `Apakah Anda yakin ingin menghapus data untuk ${student.nama} (${student.nim})? Tindakan ini tidak dapat diurungkan.`;
+                if (bulk) {
+                    deleteConfirmMessage.textContent = `Apakah Anda yakin ingin menghapus ${count} data mahasiswa yang dipilih? Tindakan ini tidak dapat diurungkan.`;
+                } else if (student) {
+                    deleteConfirmMessage.textContent = `Apakah Anda yakin ingin menghapus data untuk ${student.nama} (${student.nim})? Tindakan ini tidak dapat diurungkan.`;
+                } else {
+                    deleteConfirmMessage.textContent = `Apakah Anda yakin ingin menghapus data yang dipilih?`;
+                }
+
+                // disable the source button to avoid double-open (if provided)
+                if (sourceButton && typeof sourceButton.setAttribute === 'function') {
+                    try { sourceButton.setAttribute('data-disabled-for-delete', '1'); sourceButton.disabled = true; lastDeleteSourceButton = sourceButton; } catch(e) {}
+                }
+
+                // attach a one-time click handler for confirm button
+                const handler = async (ev) => {
+                    // confirmDelete clicked
+                    confirmDeleteButton.disabled = true;
+                    confirmDeleteButton.textContent = 'Menghapus...';
+                    try {
+                        if (bulk) {
+                            const batch = writeBatch(db);
+                            selectedRows.forEach(nim => {
+                                const docRef = doc(db, collectionPath(), nim);
+                                batch.delete(docRef);
+                            });
+                            await batch.commit();
+                            showNotification("Sukses", `${count} data berhasil dihapus.`);
+                            selectedRows.clear();
+                            updateBulkActionToolbar();
+                        } else if (studentToDelete) {
+                            const studentDocRef = doc(db, collectionPath(), studentToDelete.nim);
+                            await deleteDoc(studentDocRef);
+                            showNotification("Sukses", `Data untuk ${studentToDelete.nama} berhasil dihapus.`);
+                        }
+                    } catch (error) {
+                        console.error("Error deleting data:", error);
+                        showNotification("Error", "Gagal menghapus data.", true);
+                    } finally {
+                        confirmDeleteButton.disabled = false;
+                        confirmDeleteButton.textContent = 'Hapus';
+                        closeModal(deleteConfirmModal);
+                        // cleanup
+                        studentToDelete = null;
+                        // delete handler finished
+                    }
+                };
+
+                confirmDeleteButton.addEventListener('click', handler, { once: true });
                 openModal(deleteConfirmModal);
             }
 
@@ -1244,31 +1712,7 @@
                 if (count === 0 || !db) return;
 
                 deleteConfirmMessage.textContent = `Apakah Anda yakin ingin menghapus ${count} data mahasiswa yang dipilih? Tindakan ini tidak dapat diurungkan.`;
-                openModal(deleteConfirmModal);
-
-                confirmDeleteButton.onclick = async () => {
-                    confirmDeleteButton.disabled = true;
-                    confirmDeleteButton.textContent = 'Menghapus...';
-                    try {
-                        const batch = writeBatch(db);
-                        selectedRows.forEach(nim => {
-                            const docRef = doc(db, collectionPath(), nim);
-                            batch.delete(docRef);
-                        });
-                        await batch.commit();
-                        showNotification("Sukses", `${count} data berhasil dihapus.`);
-                        selectedRows.clear();
-                        updateBulkActionToolbar();
-                    } catch (error) {
-                        console.error("Error deleting bulk data:", error);
-                        showNotification("Error", "Gagal menghapus data.", true);
-                    } finally {
-                        confirmDeleteButton.disabled = false;
-                        confirmDeleteButton.textContent = 'Hapus';
-                        closeModal(deleteConfirmModal);
-                        confirmDeleteButton.onclick = performDelete; // Reset to single delete
-                    }
-                };
+                showDeleteConfirm({ student: null, bulk: true, count, sourceButton: deleteSelectedButton });
             }
 
             function handleBulkExport() {
@@ -1339,6 +1783,12 @@
                 // Drag & drop support for CSV area
                 if (csvDropArea) {
                     csvDropArea.addEventListener('click', () => fileInput.click());
+                    csvDropArea.addEventListener('keydown', (ev) => {
+                        if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+                            ev.preventDefault();
+                            fileInput.click();
+                        }
+                    });
                     csvDropArea.addEventListener('dragover', (ev) => { ev.preventDefault(); csvDropArea.classList.add('border-blue-500'); });
                     csvDropArea.addEventListener('dragleave', (ev) => { ev.preventDefault(); csvDropArea.classList.remove('border-blue-500'); });
                     csvDropArea.addEventListener('drop', (ev) => {
@@ -1385,21 +1835,29 @@
                 tableBody.addEventListener('click', (e) => {
                     const target = e.target;
                     const row = target.closest('tr');
+                    // table click handler - compact logging removed
                     if (!row || !row.dataset.nim) return;
 
                     const student = allStudents.find(s => s.nim === row.dataset.nim);
                     if (!student) return;
 
-                    if (target.closest('.edit-btn')) {
+                    // Detailed checks with debug traces to help diagnose why delete isn't opening
+                    if (target.closest('.detail-btn')) {
+                        // opening detail for student
+                        openDetailModal(student);
+                    } else if (target.closest('.edit-btn')) {
+                        // opening edit for student
                         openEditModal(student);
                     } else if (target.closest('.delete-btn')) {
-                        handleDeleteClick(student);
+                        const delBtn = target.closest('.delete-btn');
+                        // delete button clicked for student
+                        handleDeleteClick(student, delBtn);
                     } else if (target.closest('.rowCheckbox')) {
                         // handled by its own listener
-                    } else {
-                        openDetailModal(student);
                     }
                 });
+
+                // Keyboard handling: native buttons (Detail/Edit/Hapus) are focusable and handle keyboard activation automatically.
 
                 // Bulk Selection
                 selectAllCheckbox.addEventListener('change', (e) => {
@@ -1433,12 +1891,61 @@
                 tabGrup.addEventListener('click', () => switchView('grup'));
                 grupSearchInput.addEventListener('input', renderGroupList);
 
+                // Detail buttons inside rombel cards
+                rombelTablesContainer.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.details-btn');
+                    if (!btn) return;
+                    const nim = btn.dataset.nim;
+                    const student = allStudents.find(s => s.nim === nim);
+                    if (student) openDetailModal(student);
+                });
+
+                // Detail buttons inside grup table
+                grupTableContainer.addEventListener('click', (e) => {
+                    const btn = e.target.closest('.details-btn');
+                    if (!btn) return;
+                    const nim = btn.dataset.nim;
+                    const student = allStudents.find(s => s.nim === nim);
+                    if (student) openDetailModal(student);
+                });
+
                 // Modals & Forms
                 cancelEditButton.addEventListener('click', () => closeModal(editModal));
                 editForm.addEventListener('submit', handleFormSubmit);
+                // Add relation (tag) from edit modal
+                addRelationButton.addEventListener('click', () => {
+                    const val = relationInput.value.trim();
+                    if (!val) { showToast('error', 'Nama grup tidak boleh kosong'); return; }
+                    // prevent duplicate
+                    const existing = Array.from(relationsList.children).some(ch => ch.firstChild && ch.firstChild.textContent === val);
+                    if (existing) { showToast('info', 'Grup sudah ada'); relationInput.value = ''; return; }
+                    const tag = document.createElement('span');
+                    tag.className = 'bg-blue-100 text-blue-800 text-sm font-medium mr-2 px-2.5 py-0.5 rounded flex items-center';
+                    const textNode = document.createTextNode(val);
+                    tag.appendChild(textNode);
+                    const removeBtn = document.createElement('button');
+                    removeBtn.type = 'button';
+                    removeBtn.className = 'ml-2 text-blue-800 hover:text-blue-900 font-bold';
+                    removeBtn.innerHTML = '&times;';
+                    removeBtn.onclick = () => removeTagWithUndo(tag);
+                    tag.appendChild(removeBtn);
+                    relationsList.appendChild(tag);
+                    relationInput.value = '';
+                    showToast('success', 'Grup ditambahkan');
+                });
+                relationInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addRelationButton.click();
+                    }
+                });
                 cancelDeleteButton.addEventListener('click', () => closeModal(deleteConfirmModal));
-                confirmDeleteButton.addEventListener('click', performDelete); // Default to single delete
-                closeDetailButton.addEventListener('click', () => closeModal(detailModal));
+                // ensure no default onclick remains; handlers will be attached when showing the dialog
+                confirmDeleteButton.onclick = null;
+
+                // showDeleteConfirm is defined higher up; reuse that central implementation to avoid duplication
+                closeDetailButton.addEventListener('click', () => hideDetailPanel());
+                document.getElementById('detailModalOverlay')?.addEventListener('click', () => hideDetailPanel());
                 modalCloseButton.addEventListener('click', () => closeModal(notificationModal));
                 confirmDownloadButton.addEventListener('click', performExport);
                 cancelDownloadButton.addEventListener('click', () => closeModal(fileNameModal));

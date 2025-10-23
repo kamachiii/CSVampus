@@ -73,12 +73,6 @@ Menambahkan konfigurasi Firebase (untuk upload ke Firestore):
 
 4. Reload halaman. Jika konfigurasi benar, aplikasi akan melakukan sign-in anonim dan mendengarkan koleksi Firestore.
 
-Testing parseCSV (node):
-```bash
-cd testing
-npm install
-npm test
-```
 
 Catatan implementasi penting:
 - Parser menggunakan PapaParse (CDN) untuk robust CSV parsing.
